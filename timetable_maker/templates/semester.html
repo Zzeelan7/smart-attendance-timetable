@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>4th Semester — Timetable Setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body class="form-page">
+<div class="home-bg">
+  <div class="home-glow glow-1"></div>
+  <div class="home-glow glow-2"></div>
+</div>
+
+<nav class="form-nav">
+  <a href="/" class="back-btn">← Home</a>
+  <div class="nav-title">
+    <span class="nav-sem-badge">SEM 4</span>
+    4th Semester — Timetable Configuration
+  </div>
+  <div class="step-indicator">
+    <span class="step active" id="step-dot-1">1</span>
+    <span class="step-line"></span>
+    <span class="step" id="step-dot-2">2</span>
+    <span class="step-line"></span>
+    <span class="step" id="step-dot-3">3</span>
+  </div>
+</nav>
+
+<div class="form-container">
+
+  <!-- STEP 1 — Students -->
+  <div class="form-step active" id="step-1">
+    <div class="step-header">
+      <div class="step-icon">👥</div>
+      <div>
+        <h2>Step 1 — Student List</h2>
+        <p>Upload a <strong>single Excel file</strong> containing all students. They will be sorted alphabetically and divided equally into sections (max 75 per section).</p>
+      </div>
+    </div>
+
+    <!-- Single unified upload -->
+    <div style="max-width:600px">
+      <div class="upload-card" id="upload-card-all">
+        <div class="upload-card-header">
+          <span class="section-badge sec-a">All Students — Single File</span>
+          <span class="upload-count" id="count-all">0 students uploaded</span>
+        </div>
+        <div class="drop-zone" id="dz-all" onclick="document.getElementById('file-all').click()">
+          <div class="dz-icon">📊</div>
+          <p>Click or drag your Excel file here</p>
+          <span class="dz-hint">.xlsx &nbsp;·&nbsp; Column 1: Student Name &nbsp;·&nbsp; Column 2: USN</span>
+          <input type="file" id="file-all" accept=".xlsx" style="display:none"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section split preview — revealed after upload -->
+    <div id="division-preview" class="hidden">
+      <div style="display:flex;align-items:center;gap:10px;margin:22px 0 14px">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <span style="font-size:0.78rem;color:var(--text3);white-space:nowrap">✓ Auto-divided alphabetically</span>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+      <div class="upload-grid">
+        <div class="upload-card">
+          <div class="upload-card-header">
+            <span class="section-badge sec-a">Section A</span>
+            <span class="upload-count" id="count-a">0 students</span>
+          </div>
+          <div id="preview-a" class="student-preview"></div>
+        </div>
+        <div class="upload-card">
+          <div class="upload-card-header">
+            <span class="section-badge sec-b">Section B</span>
+            <span class="upload-count" id="count-b">0 students</span>
+          </div>
+          <div id="preview-b" class="student-preview"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-info-box" style="margin-top:16px">
+      ℹ️ Students are sorted A→Z by name then split equally into 2 sections (max 75 each). If the total is odd, Section A gets one extra student. Uploading is optional — the timetable generates without it.
+    </div>
+
+    <div class="step-actions">
+      <button class="btn btn-primary" onclick="goStep(2)">Next — Teacher Assignment →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2 — Teachers -->
+  <div class="form-step" id="step-2">
+    <div class="step-header">
+      <div class="step-icon">👨‍🏫</div>
+      <div>
+        <h2>Step 2 — Teacher Assignment</h2>
+        <p>Assign one teacher per subject per section. ELEC (elective) accepts multiple comma-separated teacher names.</p>
+      </div>
+    </div>
+
+    <div class="teacher-table-wrap">
+      <table class="teacher-table">
+        <thead>
+          <tr>
+            <th>Subject</th>
+            <th>Code</th>
+            <th>Periods/Week</th>
+            <th class="sec-col">Section A Teacher</th>
+            <th class="sec-col">Section B Teacher</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr data-abbr="MAT">
+            <td><span class="subj-dot" style="background:#7c5cf6"></span>Probability Theory &amp; Linear Algebra</td>
+            <td class="mono">22MAT41B</td>
+            <td class="center">3</td>
+            <td><input class="form-input" id="t_A_MAT" placeholder="e.g. Dr. Shashi Rekha"/></td>
+            <td><input class="form-input" id="t_B_MAT" placeholder="e.g. Dr. K.T. Shivaram"/></td>
+          </tr>
+          <tr data-abbr="MCESD">
+            <td><span class="subj-dot" style="background:#4f8ef7"></span>Microcontrollers &amp; Embedded System Design</td>
+            <td class="mono">22EC42</td>
+            <td class="center">3</td>
+            <td><input class="form-input" id="t_A_MCESD" placeholder="e.g. Prof. Bindu H.M."/></td>
+            <td><input class="form-input" id="t_B_MCESD" placeholder="e.g. Prof. Nirmala Y.N."/></td>
+          </tr>
+          <tr data-abbr="DSP">
+            <td><span class="subj-dot" style="background:#22d3a0"></span>Digital Signal Processing <span class="credit-badge">4 credits</span></td>
+            <td class="mono">22EC43</td>
+            <td class="center">3 + 1 EXCL</td>
+            <td><input class="form-input" id="t_A_DSP" placeholder="e.g. Dr. S. Thenmozhi"/></td>
+            <td><input class="form-input" id="t_B_DSP" placeholder="e.g. Prof. Kavita S. Guddad"/></td>
+          </tr>
+          <tr data-abbr="PCT">
+            <td><span class="subj-dot" style="background:#f78c54"></span>Principles of Communication Theory <span class="credit-badge">4 credits</span></td>
+            <td class="mono">22EC44</td>
+            <td class="center">3 + 1 EXCL</td>
+            <td><input class="form-input" id="t_A_PCT" placeholder="e.g. Dr. Trupti S. Tagare"/></td>
+            <td><input class="form-input" id="t_B_PCT" placeholder="e.g. Prof. Vidyashree K.N."/></td>
+          </tr>
+          <tr data-abbr="ELEC">
+            <td><span class="subj-dot" style="background:#f75492"></span>Industrial Electronics / RTOS (Elective)</td>
+            <td class="mono">22EC461–464</td>
+            <td class="center">3</td>
+            <td><input class="form-input" id="t_A_ELEC" placeholder="e.g. Dr. Manasa R.K."/></td>
+            <td><input class="form-input" id="t_B_ELEC" placeholder="e.g. Prof. Vibha T.G."/></td>
+          </tr>
+          <tr data-abbr="UHV">
+            <td><span class="subj-dot" style="background:#f7c154"></span>Universal Human Values</td>
+            <td class="mono">22UH48</td>
+            <td class="center">1</td>
+            <td><input class="form-input" id="t_A_UHV" placeholder="e.g. Dr. Sreenath"/></td>
+            <td><input class="form-input" id="t_B_UHV" placeholder="e.g. Dr. Swapnil S. Ninawe"/></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Labs section -->
+    <div class="labs-section">
+      <h3 class="labs-title">🔬 Lab Teacher Assignment</h3>
+      <p class="labs-desc">Each section is divided into 3 batches for labs. Assign the teacher responsible for each lab per section.</p>
+
+      <div class="labs-grid">
+        <div class="lab-card">
+          <div class="lab-header">
+            <span class="lab-color" style="background:#4f8ef7"></span>
+            <div>
+              <strong>MCESD Lab</strong> <span class="mono">22ECL45</span>
+              <p>Microcontroller &amp; Embedded Systems Lab</p>
+            </div>
+          </div>
+          <div class="lab-inputs">
+            <input class="form-input" id="l_A_MCESD_LAB" placeholder="Section A Lab Teacher"/>
+            <input class="form-input" id="l_B_MCESD_LAB" placeholder="Section B Lab Teacher"/>
+          </div>
+        </div>
+
+        <div class="lab-card">
+          <div class="lab-header">
+            <span class="lab-color" style="background:#22d3a0"></span>
+            <div>
+              <strong>IDSP Lab</strong> <span class="mono">DSP Lab</span>
+              <p>Digital Signal Processing Lab</p>
+            </div>
+          </div>
+          <div class="lab-inputs">
+            <input class="form-input" id="l_A_IDSP" placeholder="Section A Lab Teacher"/>
+            <input class="form-input" id="l_B_IDSP" placeholder="Section B Lab Teacher"/>
+          </div>
+        </div>
+
+        <div class="lab-card">
+          <div class="lab-header">
+            <span class="lab-color" style="background:#f78c54"></span>
+            <div>
+              <strong>IPCT Lab</strong> <span class="mono">PCT Lab</span>
+              <p>Principles of Communication Theory Lab</p>
+            </div>
+          </div>
+          <div class="lab-inputs">
+            <input class="form-input" id="l_A_IPCT" placeholder="Section A Lab Teacher"/>
+            <input class="form-input" id="l_B_IPCT" placeholder="Section B Lab Teacher"/>
+          </div>
+        </div>
+
+        <div class="lab-card">
+          <div class="lab-header">
+            <span class="lab-color" style="background:#06b6d4"></span>
+            <div>
+              <strong>DCDF Lab</strong> <span class="mono">22ECL471</span>
+              <p>Digital Circuit Design with FPGA (Independent)</p>
+            </div>
+          </div>
+          <div class="lab-inputs">
+            <input class="form-input" id="l_A_DCDF" placeholder="Section A Lab Teacher"/>
+            <input class="form-input" id="l_B_DCDF" placeholder="Section B Lab Teacher"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-actions">
+      <button class="btn btn-outline" onclick="goStep(1)">← Back</button>
+      <button class="btn btn-primary" onclick="goStep(3)">Next — Review &amp; Generate →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3 — Generate -->
+  <div class="form-step" id="step-3">
+    <div class="step-header">
+      <div class="step-icon">⚙️</div>
+      <div>
+        <h2>Step 3 — Review &amp; Generate</h2>
+        <p>Review your inputs below. Click Generate to run the scheduling algorithm.</p>
+      </div>
+    </div>
+
+    <div id="review-panel" class="review-panel">
+      <!-- Filled by JS -->
+    </div>
+
+    <div id="generate-errors" class="gen-errors hidden"></div>
+
+    <div class="step-actions" style="gap:12px;flex-wrap:wrap">
+      <button class="btn btn-outline" onclick="goStep(2)">← Back</button>
+      <button class="btn btn-generate" id="btn-generate" onclick="runGenerate()">
+        <span class="btn-generate-icon">⚡</span>
+        Generate Timetable
+      </button>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="gen-loading" class="gen-loading hidden">
+      <div class="gen-spinner"></div>
+      <p>Running scheduling algorithm…</p>
+      <p class="gen-sub">Checking constraints and placing subjects</p>
+    </div>
+  </div>
+
+</div>
+
+<script src="/static/js/semester.js"></script>
+</body>
+</html>

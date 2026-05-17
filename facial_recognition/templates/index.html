@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FaceGuard — Facial Recognition System</title>
+<meta name="description" content="Real-time facial recognition dashboard supporting PC webcam and ESP32-CAM"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body>
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z"/>
+        <circle cx="9" cy="10" r="1.5"/><circle cx="15" cy="10" r="1.5"/>
+        <path d="M8 15s1.5 2 4 2 4-2 4-2"/>
+        <path d="M3 7h2M19 7h2M3 17h2M19 17h2"/>
+      </svg>
+    </div>
+    <span class="brand-name">FaceGuard</span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="#" class="nav-item active" data-tab="live" id="nav-live">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M20.188 10.934C21.288 11.416 22 12 22 12s-4 6-10 6S2 12 2 12s4-6 10-6c1.63 0 3.145.385 4.461 1.006"/><circle cx="19" cy="5" r="2" fill="currentColor" stroke="none" class="pulse-dot"/></svg>
+      Live Feed
+    </a>
+    <a href="#" class="nav-item" data-tab="enroll" id="nav-enroll">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M16 11l2 2 4-4" stroke-width="2.5"/></svg>
+      Enroll Face
+    </a>
+    <a href="#" class="nav-item" data-tab="people" id="nav-people">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      People
+    </a>
+    <a href="#" class="nav-item" data-tab="logs" id="nav-logs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Event Log
+    </a>
+    <a href="#" class="nav-item" data-tab="settings" id="nav-settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      Camera Settings
+    </a>
+  </nav>
+
+  <div class="sidebar-status">
+    <div class="status-indicator" id="cam-status-dot"></div>
+    <div class="status-text">
+      <span id="cam-status-label">Connecting…</span>
+      <span id="cam-source-label" class="status-sub">—</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<main class="main-content">
+
+  <!-- LIVE TAB -->
+  <section class="tab-panel active" id="tab-live">
+    <div class="panel-header">
+      <h1>Live Recognition Feed</h1>
+      <div class="header-actions">
+        <button class="btn btn-ghost" id="btn-snapshot" onclick="takeSnapshot()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 0 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Snapshot
+        </button>
+      </div>
+    </div>
+
+    <div class="live-grid">
+      <!-- Video -->
+      <div class="video-card">
+        <div class="video-wrapper">
+          <img id="video-stream" src="/video_feed" alt="Live camera feed"/>
+          <div class="video-overlay-tl">
+            <span class="live-badge" id="live-badge">● LIVE</span>
+          </div>
+          <div class="video-overlay-tr" id="cam-type-badge">PC CAM</div>
+        </div>
+      </div>
+
+      <!-- Detection Panel -->
+      <div class="detection-panel">
+        <h3>Detected Faces</h3>
+        <div id="detection-list" class="detection-list">
+          <div class="no-detection">No faces in frame</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="stat-enrolled">0</div>
+            <div class="stat-label">Enrolled</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-today">0</div>
+            <div class="stat-label">Today</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-total">0</div>
+            <div class="stat-label">All Time</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-unknown">0</div>
+            <div class="stat-label">Unknowns</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ENROLL TAB -->
+  <section class="tab-panel" id="tab-enroll">
+    <div class="panel-header"><h1>Enroll New Face</h1></div>
+    <div class="enroll-grid">
+      <!-- Live capture -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon green">📷</div>
+          <div>
+            <h3>Live Camera Capture</h3>
+            <p>Position your face in the camera and click Enroll</p>
+          </div>
+        </div>
+        <div class="enroll-preview" style="position:relative">
+          <img id="enroll-snapshot" alt="Camera preview" class="preview-stream"
+               style="width:100%;border-radius:8px;background:#0a0e1a"/>
+          <div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);
+            color:#fff;font-size:0.7rem;padding:3px 8px;border-radius:4px">PREVIEW</div>
+        </div>
+        <div class="form-group">
+          <label for="enroll-name-live">Person's Name</label>
+          <input type="text" id="enroll-name-live" placeholder="e.g. John Doe" class="form-input"/>
+        </div>
+        <button class="btn btn-primary btn-full" id="btn-enroll-live" onclick="enrollFromCamera()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+          Capture &amp; Enroll
+        </button>
+        <div id="enroll-live-msg" class="msg-box hidden"></div>
+      </div>
+
+      <!-- Upload image -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon blue">🖼️</div>
+          <div>
+            <h3>Upload Image</h3>
+            <p>Upload a clear photo (one face per image works best)</p>
+          </div>
+        </div>
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('img-upload').click()">
+          <div class="upload-icon">⬆️</div>
+          <p>Click or drag &amp; drop image here</p>
+          <span class="upload-hint">JPG, PNG supported</span>
+          <input type="file" id="img-upload" accept="image/*" style="display:none" onchange="previewImage(this)"/>
+        </div>
+        <img id="img-preview" class="img-preview hidden" alt="Preview"/>
+        <div class="form-group">
+          <label for="enroll-name-img">Person's Name</label>
+          <input type="text" id="enroll-name-img" placeholder="e.g. Jane Doe" class="form-input"/>
+        </div>
+        <button class="btn btn-primary btn-full" id="btn-enroll-img" onclick="enrollFromImage()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+          Enroll from Image
+        </button>
+        <div id="enroll-img-msg" class="msg-box hidden"></div>
+      </div>
+
+      <!-- Bulk rebuild -->
+      <div class="card card-full">
+        <div class="card-header">
+          <div class="card-icon yellow">🔄</div>
+          <div>
+            <h3>Rebuild from known_faces/ Directory</h3>
+            <p>Manually drop images into <code>known_faces/PersonName/photo.jpg</code> then rebuild</p>
+          </div>
+        </div>
+        <button class="btn btn-outline" onclick="rebuildEncodings()" id="btn-rebuild">Rebuild Encodings</button>
+        <div id="rebuild-msg" class="msg-box hidden" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PEOPLE TAB -->
+  <section class="tab-panel" id="tab-people">
+    <div class="panel-header">
+      <h1>Enrolled People</h1>
+      <button class="btn btn-ghost" onclick="loadPeople()">↻ Refresh</button>
+    </div>
+    <div id="people-grid" class="people-grid">
+      <div class="loading-msg">Loading…</div>
+    </div>
+  </section>
+
+  <!-- LOGS TAB -->
+  <section class="tab-panel" id="tab-logs">
+    <div class="panel-header">
+      <h1>Recognition Event Log</h1>
+      <button class="btn btn-ghost" onclick="loadLogs()">↻ Refresh</button>
+    </div>
+    <div class="table-wrapper">
+      <table class="log-table" id="log-table">
+        <thead><tr><th>Time</th><th>Name</th><th>Confidence</th><th>Status</th><th>Camera</th></tr></thead>
+        <tbody id="log-body"><tr><td colspan="5" class="loading-msg">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- SETTINGS TAB -->
+  <section class="tab-panel" id="tab-settings">
+    <div class="panel-header"><h1>Camera Settings</h1></div>
+    <div class="settings-grid">
+      <div class="card">
+        <div class="card-header"><div class="card-icon purple">🖥️</div><div><h3>PC Webcam</h3><p>Use your computer's built-in or USB webcam</p></div></div>
+        <div class="form-group">
+          <label>Device Index</label>
+          <input type="number" id="pc-index" value="0" min="0" max="10" class="form-input" style="width:80px"/>
+        </div>
+        <button class="btn btn-primary" onclick="switchCamera('pc')">Switch to PC Cam</button>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-icon orange">📡</div><div><h3>ESP32-CAM</h3><p>Connect your ESP32-CAM over WiFi</p></div></div>
+        <div class="form-group">
+          <label>Stream URL</label>
+          <input type="text" id="esp32-url" placeholder="http://192.168.1.100/stream" class="form-input"/>
+        </div>
+        <button class="btn btn-primary" onclick="switchCamera('esp32')">Switch to ESP32-CAM</button>
+        <div class="esp32-help">
+          <details>
+            <summary>ESP32-CAM Setup Guide</summary>
+            <ol>
+              <li>Flash <strong>CameraWebServer</strong> sketch (Arduino IDE → Examples → ESP32 → Camera)</li>
+              <li>Set board to <strong>AI Thinker ESP32-CAM</strong></li>
+              <li>Set your WiFi SSID &amp; password in the sketch</li>
+              <li>Connect IO0 to GND to enter flash mode, then disconnect after flashing</li>
+              <li>Open Serial Monitor at 115200 baud — note the IP address</li>
+              <li>Enter URL above as <code>http://&lt;IP&gt;/stream</code></li>
+            </ol>
+          </details>
+        </div>
+      </div>
+
+      <div class="card card-full" id="settings-status-card">
+        <h3>Current Camera Status</h3>
+        <div id="settings-status" class="status-detail">Loading…</div>
+        <div id="cam-switch-msg" class="msg-box hidden" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── TOAST ── -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

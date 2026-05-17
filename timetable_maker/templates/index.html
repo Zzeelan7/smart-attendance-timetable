@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Smart Timetable Generator — DSCE ECE</title>
+<meta name="description" content="Automated timetable generation for Dayananda Sagar College of Engineering, ECE Department"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body>
+<div class="home-bg">
+  <div class="home-glow glow-1"></div>
+  <div class="home-glow glow-2"></div>
+</div>
+
+<div class="home-wrap">
+  <!-- Header -->
+  <header class="home-header">
+    <div class="logo-mark">
+      <svg viewBox="0 0 40 40" fill="none">
+        <rect width="40" height="40" rx="10" fill="url(#lg)"/>
+        <path d="M10 28V14l10-6 10 6v14l-10 6-10-6z" stroke="#fff" stroke-width="1.5" fill="none"/>
+        <path d="M20 8v24M10 14l10 6 10-6" stroke="#fff" stroke-width="1.2"/>
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#4f8ef7"/><stop offset="1" stop-color="#7c5cf6"/>
+        </linearGradient></defs>
+      </svg>
+    </div>
+    <div class="header-text">
+      <h1 class="site-title">Smart Timetable Generator</h1>
+      <p class="site-sub">Dayananda Sagar College of Engineering — ECE Department</p>
+    </div>
+    <div class="header-badge">Phase 1</div>
+  </header>
+
+  <!-- Instruction -->
+  <div class="home-instructions">
+    <span class="inst-icon">👆</span>
+    <p>Select a semester to begin generating timetables for that semester's sections.</p>
+  </div>
+
+  <!-- Semester Grid -->
+  <div class="sem-grid" id="sem-grid">
+    <!-- Sem 1 -->
+    <a href="#" class="sem-card disabled" data-sem="1">
+      <div class="sem-number">01</div>
+      <div class="sem-label">1st Semester</div>
+      <div class="sem-badge coming">Coming Soon</div>
+    </a>
+    <!-- Sem 2 -->
+    <a href="#" class="sem-card disabled" data-sem="2">
+      <div class="sem-number">02</div>
+      <div class="sem-label">2nd Semester</div>
+      <div class="sem-badge coming">Coming Soon</div>
+    </a>
+    <!-- Sem 3 -->
+    <a href="#" class="sem-card disabled" data-sem="3">
+      <div class="sem-number">03</div>
+      <div class="sem-label">3rd Semester</div>
+      <div class="sem-badge coming">Coming Soon</div>
+    </a>
+    <!-- Sem 4 — ACTIVE -->
+    <a href="/semester/4" class="sem-card active" data-sem="4" id="sem4-card">
+      <div class="sem-glow"></div>
+      <div class="sem-number">04</div>
+      <div class="sem-label">4th Semester</div>
+      <div class="sem-badge live">Available ✓</div>
+      <div class="sem-detail">ECE — 2 Sections</div>
+      <div class="sem-arrow">→</div>
+    </a>
+    <!-- Sem 5 -->
+    <a href="#" class="sem-card disabled" data-sem="5">
+      <div class="sem-number">05</div>
+      <div class="sem-label">5th Semester</div>
+      <div class="sem-badge coming">Coming Soon</div>
+    </a>
+    <!-- Sem 6 -->
+    <a href="#" class="sem-card disabled" data-sem="6">
+      <div class="sem-number">06</div>
+      <div class="sem-label">6th Semester</div>
+      <div class="sem-badge coming">Coming Soon</div>
+    </a>
+    <!-- Sem 7 -->
+    <a href="#" class="sem-card disabled" data-sem="7">
+      <div class="sem-number">07</div>
+      <div class="sem-label">7th Semester</div>
+      <div class="sem-badge coming">Coming Soon</div>
+    </a>
+    <!-- Sem 8 -->
+    <a href="#" class="sem-card disabled" data-sem="8">
+      <div class="sem-number">08</div>
+      <div class="sem-label">8th Semester</div>
+      <div class="sem-badge coming">Coming Soon</div>
+    </a>
+  </div>
+
+  <!-- Footer -->
+  <footer class="home-footer">
+    <span>Phase 1 — 4th Sem ECE, Sections A &amp; B</span>
+    <span class="dot">·</span>
+    <span>Academic Year 2025–26</span>
+    <span class="dot">·</span>
+    <span>DSCE ECE Department</span>
+  </footer>
+</div>
+
+<script>
+  // Prevent click on disabled cards
+  document.querySelectorAll('.sem-card.disabled').forEach(card => {
+    card.addEventListener('click', e => {
+      e.preventDefault();
+      card.classList.add('shake');
+      setTimeout(() => card.classList.remove('shake'), 500);
+    });
+  });
+</script>
+</body>
+</html>

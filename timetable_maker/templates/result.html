@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Generated Timetable — 4th Semester ECE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body class="result-page">
+<div class="home-bg">
+  <div class="home-glow glow-1"></div>
+</div>
+
+<nav class="form-nav">
+  <a href="/" class="back-btn">← Home</a>
+  <div class="nav-title">
+    <span class="nav-sem-badge">SEM 4</span>
+    Generated Timetable — 4th Semester ECE
+  </div>
+  <div class="export-actions">
+    <a href="/export/excel" class="btn btn-export excel" download>⬇ Excel</a>
+    <a href="/export/pdf" class="btn btn-export pdf" download>⬇ PDF</a>
+  </div>
+</nav>
+
+<div class="result-wrap">
+  <!-- Errors / Warnings -->
+  <div id="result-errors" class="result-errors hidden"></div>
+
+  <!-- Legend -->
+  <div class="legend" id="legend"></div>
+
+  <!-- Tabs -->
+  <div class="result-tabs">
+    <button class="rtab active" data-tab="sec-a" onclick="switchTab('sec-a', this)">Section A</button>
+    <button class="rtab" data-tab="sec-b" onclick="switchTab('sec-b', this)">Section B</button>
+    <button class="rtab" data-tab="teachers" onclick="switchTab('teachers', this)">Teacher Timetables</button>
+    <button class="rtab" data-tab="students" onclick="switchTab('students', this)">Student Lists</button>
+  </div>
+
+  <!-- Section A -->
+  <div class="result-panel active" id="panel-sec-a">
+    <div class="tt-header">
+      <h2>Section A — Weekly Timetable</h2>
+      <span class="classroom-badge">Classroom: 308</span>
+    </div>
+    <div class="tt-scroll">
+      <table class="tt-table" id="tt-a"></table>
+    </div>
+  </div>
+
+  <!-- Section B -->
+  <div class="result-panel" id="panel-sec-b">
+    <div class="tt-header">
+      <h2>Section B — Weekly Timetable</h2>
+      <span class="classroom-badge">Classroom: 309</span>
+    </div>
+    <div class="tt-scroll">
+      <table class="tt-table" id="tt-b"></table>
+    </div>
+  </div>
+
+  <!-- Teacher Timetables -->
+  <div class="result-panel" id="panel-teachers">
+    <div class="teacher-select-bar">
+      <h2>Teacher Timetables</h2>
+      <select id="teacher-select" onchange="showTeacherTT(this.value)" class="form-input" style="width:260px">
+        <option value="">— Select Teacher —</option>
+      </select>
+    </div>
+    <div id="teacher-tt-wrap">
+      <div class="empty-teacher">Select a teacher to view their weekly schedule</div>
+    </div>
+  </div>
+
+  <!-- Student Lists -->
+  <div class="result-panel" id="panel-students">
+    <div class="tt-header"><h2>Student Section Allocation</h2></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" id="students-grid">
+      <div class="upload-card">
+        <div class="upload-card-header">
+          <span class="section-badge sec-a">Section A</span>
+          <span class="upload-count" id="res-count-a">0 students</span>
+        </div>
+        <div id="student-list-a" class="student-list-table"></div>
+      </div>
+      <div class="upload-card">
+        <div class="upload-card-header">
+          <span class="section-badge sec-b">Section B</span>
+          <span class="upload-count" id="res-count-b">0 students</span>
+        </div>
+        <div id="student-list-b" class="student-list-table"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Data injected from sessionStorage after generation ──────────
+const TT_DATA = JSON.parse(sessionStorage.getItem('tt_result') || '{}');
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+const PERIOD_LABELS = ['P1 9:00–10:00','P2 10:00–11:00','P3 11:15–12:15',
+                       'P4 12:15–1:15','P5 2:00–3:00','P6 3:00–4:00',
+                       'P7 4:00–5:00'];
+
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.rtab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.result-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-' + tabId).classList.add('active');
+}
+
+function buildTT(tableEl, grid) {
+  // Header row (periods)
+  let html = '<thead><tr><th class="day-col">Day</th>';
+  PERIOD_LABELS.forEach(l => { html += `<th>${l}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  DAYS.forEach((day, di) => {
+    html += `<tr><td class="day-cell">${day}</td>`;
+    for (let p = 0; p < 6; p++) {
+      const cell = grid[di] && grid[di][p];
+      if (cell) {
+        const clr = cell.color || '#334155';
+        const teacher = (cell.teacher && cell.type !== 'fixed') ? `<div class="tt-teacher">${cell.teacher}</div>` : '';
+        const room = cell.room ? `<div class="tt-room">Room ${cell.room}</div>` : '';
+        let batches = '';
+        if (cell.type === 'lab' && cell.batches) {
+          batches = `<div class="batch-list">${cell.batches.map(b =>
+            `<span class="batch-chip">${b.batch}: ${b.lab}</span>`).join('')}</div>`;
+        }
+        html += `<td class="tt-cell" style="background:${clr}20;border-left:3px solid ${clr}">
+          <div class="tt-subj" style="color:${clr}">${cell.display}</div>
+          ${teacher}${room}${batches}
+        </td>`;
+      } else {
+        html += '<td class="tt-cell empty">—</td>';
+      }
+    }
+    html += '</tr>';
+  });
+
+  // Saturday row (fixed)
+  html += `<tr class="sat-row"><td class="day-cell">Saturday</td>
+    <td colspan="2" class="tt-cell fixed-cell" style="background:#47556920;border-left:3px solid #475569">
+      <div class="tt-subj" style="color:#94a3b8">MINI PROJECT</div></td>
+    <td colspan="2" class="tt-cell fixed-cell" style="background:#37415120;border-left:3px solid #374151">
+      <div class="tt-subj" style="color:#94a3b8">PROCTORING</div></td>
+    <td colspan="2" class="tt-cell fixed-cell" style="background:#1e293b20;border-left:3px solid #1e293b">
+      <div class="tt-subj" style="color:#64748b">EXCL</div></td>
+  </tr>`;
+
+  html += '</tbody>';
+  tableEl.innerHTML = html;
+}
+
+function buildLegend(colors) {
+  const legend = document.getElementById('legend');
+  const items = Object.entries(colors)
+    .filter(([k]) => !['MINI PROJECT','LAB','DIP MATHS'].includes(k));
+  legend.innerHTML = '<div class="legend-title">Subject Legend:</div>' +
+    items.map(([k, c]) => `<span class="legend-item">
+      <span class="legend-dot" style="background:${c}"></span>${k}</span>`).join('');
+}
+
+function showTeacherTT(name) {
+  const wrap = document.getElementById('teacher-tt-wrap');
+  if (!name || !TT_DATA.teacher_schedules || !TT_DATA.teacher_schedules[name]) {
+    wrap.innerHTML = '<div class="empty-teacher">Select a teacher to view their schedule</div>';
+    return;
+  }
+  const grid = TT_DATA.teacher_schedules[name];
+  const table = document.createElement('table');
+  table.className = 'tt-table';
+  buildTT(table, grid);
+  wrap.innerHTML = `<h3 style="margin-bottom:12px;color:var(--text2)">📅 ${name}</h3>`;
+  wrap.appendChild(table);
+}
+
+// ── Init ──────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  if (!TT_DATA || !TT_DATA.grid_A) {
+    document.querySelector('.result-wrap').innerHTML =
+      '<div class="empty-teacher" style="padding:80px;text-align:center">No timetable data found. <a href="/semester/4" style="color:var(--accent)">Go back and generate one.</a></div>';
+    return;
+  }
+
+
+
+
+  buildLegend(TT_DATA.colors || {});
+  buildTT(document.getElementById('tt-a'), TT_DATA.grid_A);
+  buildTT(document.getElementById('tt-b'), TT_DATA.grid_B);
+
+  // Populate teacher select
+  const sel = document.getElementById('teacher-select');
+  Object.keys(TT_DATA.teacher_schedules || {}).sort().forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    sel.appendChild(opt);
+  });
+
+  // ── Student lists ─────────────────────────────────────────────
+  function renderStudentList(containerId, countId, students) {
+    const el = document.getElementById(containerId);
+    const cEl = document.getElementById(countId);
+    if (!students || !students.length) {
+      el.innerHTML = '<div class="empty-teacher" style="padding:20px">No student list uploaded.</div>';
+      cEl.textContent = '0 students';
+      return;
+    }
+    cEl.textContent = `${students.length} students`;
+    // Divide into 3 lab batches
+    const batchSize = Math.ceil(students.length / 3);
+    let html = '<table class="slist-table"><thead><tr><th>#</th><th>Name</th><th>USN</th><th>Batch</th></tr></thead><tbody>';
+    students.forEach((s, i) => {
+      const batch = Math.floor(i / batchSize) + 1;
+      const batchColors = ['#4f8ef7', '#22d3a0', '#f78c54'];
+      const sec = containerId.includes('-a') ? 'A' : 'B';
+      html += `<tr>
+        <td style="color:var(--text3);font-family:var(--mono)">${i + 1}</td>
+        <td>${s.name}</td>
+        <td style="font-family:var(--mono);font-size:0.78rem;color:var(--text3)">${s.usn || '—'}</td>
+        <td><span style="background:${batchColors[batch-1]}22;color:${batchColors[batch-1]};
+          padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:600">
+          ${sec}${batch}</span></td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }
+
+  renderStudentList('student-list-a', 'res-count-a', TT_DATA.students_A || []);
+  renderStudentList('student-list-b', 'res-count-b', TT_DATA.students_B || []);
+});
+</script>
+</body>
+</html>

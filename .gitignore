@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Face recognition — personal biometric data (never commit)
+facial_recognition/known_faces/
+facial_recognition/data/
+
+# Timetable — cached results & test exports
+timetable_maker/last_result.json
+timetable_maker/exports/
+timetable_maker/uploads/
+timetable_maker/test_output.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
