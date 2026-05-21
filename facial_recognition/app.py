@@ -343,6 +343,311 @@ def api_snapshot():
     )
 
 
+# ── ESP32 state machine ───────────────────────────────────────────────────────
+# Shared state that the ESP32 polls every ~1 s.
+# Updated by camera_loop when a face is detected / lost.
+import uuid
+_esp32_lock  = threading.Lock()
+_esp32_state = {
+    "state":      "idle",   # idle | face_detected | not_registered
+    "name":       None,
+    "confidence": 0.0,
+    "timestamp":  None,
+}
+_ESP32_RESET_AFTER = 12   # seconds — auto-reset to idle after this long
+
+# Path helpers
+DATA_DIR          = os.path.join(BASE_DIR, "data")
+STUDENTS_DB_PATH  = os.path.join(DATA_DIR, "students_db.json")
+ATTENDANCE_PATH   = os.path.join(DATA_DIR, "attendance_log.json")
+TIMETABLE_PATH    = os.path.join(
+    os.path.dirname(BASE_DIR), "timetable_maker", "last_result.json"
+)
+os.makedirs(DATA_DIR, exist_ok=True)
+
+def _load_json(path, default):
+    if os.path.exists(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return default
+
+def _save_json(path, data):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+def _set_esp32_state(state: str, name=None, confidence=0.0):
+    with _esp32_lock:
+        _esp32_state["state"]      = state
+        _esp32_state["name"]       = name
+        _esp32_state["confidence"] = round(confidence, 3)
+        _esp32_state["timestamp"]  = datetime.now().isoformat()
+
+# ── Hook camera_loop to update ESP32 state ────────────────────────────────────
+# Monkey-patch camera_loop's result handler after-the-fact using a watcher thread
+
+def _esp32_watcher():
+    """
+    Watches _last_results every 0.5 s and pushes state changes so the
+    ESP32 poll endpoint always reflects the latest recognition result.
+    Auto-resets to idle if no update arrives within _ESP32_RESET_AFTER seconds.
+    """
+    prev_state = "idle"
+    last_detection_time = 0.0
+
+    while True:
+        time.sleep(0.5)
+        with _frame_lock:
+            results = list(_last_results)
+
+        known = [r for r in results if r.get("is_known")]
+        unknown = [r for r in results if not r.get("is_known")]
+
+        if known:
+            best = max(known, key=lambda r: r.get("confidence", 0))
+            _set_esp32_state("face_detected", best["name"], best.get("confidence", 0))
+            last_detection_time = time.time()
+            prev_state = "face_detected"
+        elif unknown:
+            _set_esp32_state("not_registered")
+            last_detection_time = time.time()
+            prev_state = "not_registered"
+        else:
+            # Auto-reset to idle after timeout
+            if prev_state != "idle" and (time.time() - last_detection_time) > _ESP32_RESET_AFTER:
+                _set_esp32_state("idle")
+                prev_state = "idle"
+
+
+threading.Thread(target=_esp32_watcher, daemon=True, name="ESP32Watcher").start()
+
+
+# ── Timetable helpers ─────────────────────────────────────────────────────────
+
+def _find_student(name: str) -> dict:
+    """Return {semester, section} for a student name, or {} if not found."""
+    db = _load_json(STUDENTS_DB_PATH, {})
+    name_lower = name.lower()
+    for sem, sections in db.items():
+        for sec, students in sections.items():
+            for s in students:
+                if s.get("name", "").lower() == name_lower:
+                    return {"semester": sem, "section": sec, "usn": s.get("usn", "")}
+    return {}
+
+PERIOD_TIMES = ["9:00-10:00","10:00-11:00","11:15-12:15",
+                "12:15-1:15","2:00-3:00","3:00-4:00"]
+PERIOD_LABELS = ["P1","P2","P3","P4","P5","P6"]
+DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday"]
+
+def _get_today_timetable(name: str) -> dict:
+    """Return today's classes for the given student/teacher name."""
+    today = datetime.now().strftime("%A")   # e.g. "Thursday"
+
+    # Try to find in student DB
+    info = _find_student(name)
+    result_data = _load_json(TIMETABLE_PATH, {})
+    if not result_data:
+        return {"name": name, "day": today, "classes": [], "error": "No timetable generated yet"}
+
+    classes = []
+    if info:
+        sem_key = info["semester"]
+        section = info["section"]
+        sem_result = result_data.get("results", {}).get(sem_key, {})
+        grid_key = f"grid_{section}"
+        grid = sem_result.get(grid_key, [])
+        day_idx = DAYS.index(today) if today in DAYS else -1
+        if day_idx >= 0 and day_idx < len(grid):
+            for p_idx, slot in enumerate(grid[day_idx]):
+                if slot and not slot.get("cont"):
+                    classes.append({
+                        "period":  PERIOD_LABELS[p_idx],
+                        "time":    PERIOD_TIMES[p_idx] if p_idx < len(PERIOD_TIMES) else "",
+                        "subject": slot.get("full_name", slot.get("display", "")),
+                        "teacher": slot.get("teacher", ""),
+                        "type":    slot.get("type", "theory"),
+                    })
+    else:
+        # Try as teacher — search all sems
+        for sem_key, sem_result in result_data.get("results", {}).items():
+            ts = sem_result.get("teacher_schedules", {})
+            if name in ts:
+                day_idx = DAYS.index(today) if today in DAYS else -1
+                for sec in ("A", "B"):
+                    grid = ts[name].get(sec, [])
+                    if day_idx >= 0 and day_idx < len(grid):
+                        for p_idx, slot in enumerate(grid[day_idx]):
+                            if slot and not slot.get("cont"):
+                                classes.append({
+                                    "period":  PERIOD_LABELS[p_idx],
+                                    "time":    PERIOD_TIMES[p_idx] if p_idx < len(PERIOD_TIMES) else "",
+                                    "subject": slot.get("full_name", slot.get("display", "")),
+                                    "section": f"Sem {sem_key} Sec {sec}",
+                                    "type":    slot.get("type", "theory"),
+                                })
+
+    return {"name": name, "day": today, "classes": classes, "info": info}
+
+
+# ── New API routes ─────────────────────────────────────────────────────────────
+
+@app.route("/api/esp32/poll")
+def esp32_poll():
+    """ESP32 calls this every ~1 s to get the current recognition state."""
+    with _esp32_lock:
+        state = dict(_esp32_state)
+    return jsonify(state)
+
+
+@app.route("/api/esp32/reset", methods=["POST"])
+def esp32_reset():
+    """ESP32 calls this after it has finished handling a detection event."""
+    _set_esp32_state("idle")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/attendance/mark", methods=["POST"])
+def attendance_mark():
+    """
+    Called by the ESP32 after fingerprint verification.
+    Body JSON: { name, fingerprint_id, semester (opt), section (opt) }
+    Returns:   { success, message, timetable }
+    """
+    data = request.get_json(force=True) or {}
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"success": False, "error": "name required"}), 400
+
+    now      = datetime.now()
+    info     = _find_student(name)
+    day_name = now.strftime("%A")
+
+    # Build a record
+    record = {
+        "id":           str(uuid.uuid4())[:8],
+        "name":         name,
+        "usn":          info.get("usn", data.get("usn", "")),
+        "semester":     info.get("semester", data.get("semester", "")),
+        "section":      info.get("section", data.get("section", "")),
+        "date":         now.strftime("%Y-%m-%d"),
+        "day":          day_name,
+        "time":         now.strftime("%H:%M:%S"),
+        "timestamp":    now.isoformat(),
+        "fingerprint_id": data.get("fingerprint_id", ""),
+        "verification": "face+fingerprint",
+    }
+
+    log = _load_json(ATTENDANCE_PATH, {"records": []})
+    log["records"].append(record)
+    _save_json(ATTENDANCE_PATH, log)
+
+    # Reset ESP32 state
+    _set_esp32_state("idle")
+
+    # Return timetable for this person
+    tt = _get_today_timetable(name)
+    return jsonify({"success": True, "message": "Attendance marked", "record": record, "timetable": tt})
+
+
+@app.route("/api/timetable/<name>")
+def api_timetable(name):
+    """Return today's timetable for a given student or teacher name."""
+    return jsonify(_get_today_timetable(name))
+
+
+@app.route("/api/students", methods=["GET"])
+def api_students_get():
+    """Return the full student database, or filter by ?sem=4."""
+    db = _load_json(STUDENTS_DB_PATH, {})
+    sem = request.args.get("sem")
+    if sem:
+        return jsonify(db.get(str(sem), {}))
+    return jsonify(db)
+
+
+@app.route("/api/students", methods=["POST"])
+def api_students_post():
+    """
+    Save/merge student data for a semester.
+    Body: { semester: "4", section: "A", students: [{name, usn}, ...] }
+    """
+    data    = request.get_json(force=True) or {}
+    sem     = str(data.get("semester", "")).strip()
+    section = data.get("section", "A").upper()
+    students = data.get("students", [])
+    if not sem:
+        return jsonify({"success": False, "error": "semester required"}), 400
+
+    db = _load_json(STUDENTS_DB_PATH, {})
+    db.setdefault(sem, {})
+    db[sem][section] = students
+    _save_json(STUDENTS_DB_PATH, db)
+    return jsonify({"success": True, "count": len(students)})
+
+
+@app.route("/api/students/sync")
+def api_students_sync():
+    """
+    Read student lists from the Timetable Maker's wizard_state.json
+    and merge them into the local students_db.json.
+    """
+    wizard_path = os.path.join(
+        os.path.dirname(BASE_DIR), "timetable_maker", "wizard_state.json"
+    )
+    if not os.path.exists(wizard_path):
+        return jsonify({"success": False, "error": "No wizard_state.json found — generate a timetable first"}), 404
+
+    with open(wizard_path, encoding="utf-8") as f:
+        wizard = json.load(f)
+
+    wizard_students = wizard.get("students", {})
+    db = _load_json(STUDENTS_DB_PATH, {})
+    imported = 0
+    for sem, sections in wizard_students.items():
+        db.setdefault(sem, {})
+        for sec, students in sections.items():
+            db[sem][sec] = students
+            imported += len(students)
+    _save_json(STUDENTS_DB_PATH, db)
+    return jsonify({"success": True, "imported": imported, "semesters": list(wizard_students.keys())})
+
+
+@app.route("/api/attendance/log")
+def api_attendance_log():
+    """Return attendance records. Optional filters: ?date=2026-05-21&sem=4&name=John"""
+    log = _load_json(ATTENDANCE_PATH, {"records": []})
+    records = log.get("records", [])
+    date_f  = request.args.get("date")
+    sem_f   = request.args.get("sem")
+    name_f  = request.args.get("name", "").lower()
+    if date_f:
+        records = [r for r in records if r.get("date") == date_f]
+    if sem_f:
+        records = [r for r in records if str(r.get("semester")) == str(sem_f)]
+    if name_f:
+        records = [r for r in records if name_f in r.get("name","").lower()]
+    return jsonify({"records": records, "total": len(records)})
+
+
+# ── New page routes ───────────────────────────────────────────────────────────
+
+@app.route("/students")
+def students_page():
+    db = _load_json(STUDENTS_DB_PATH, {})
+    semesters = sorted(db.keys(), key=lambda x: int(x) if x.isdigit() else 0)
+    return render_template("students.html", semesters=semesters, db=db)
+
+
+@app.route("/attendance")
+def attendance_page():
+    log     = _load_json(ATTENDANCE_PATH, {"records": []})
+    records = sorted(log.get("records", []), key=lambda r: r.get("timestamp",""), reverse=True)
+    return render_template("attendance.html", records=records)
+
+
 # ── Startup ───────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -363,3 +668,4 @@ if __name__ == "__main__":
                 debug=config.DEBUG, threaded=True, use_reloader=False)
     finally:
         stop_camera()
+

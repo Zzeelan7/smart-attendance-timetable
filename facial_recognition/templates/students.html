@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Student Database — FaceGuard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{--accent:#4f8ef7;--accent2:#7c5cf6;--green:#22c55e;--red:#f87171;--amber:#f59e0b;--bg:#0f172a;--card:#1e293b;--card2:#162032;--border:rgba(255,255,255,0.08);--text1:#f1f5f9;--text2:#94a3b8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text1);min-height:100vh;display:flex}
+/* Sidebar */
+.sidebar{width:240px;background:var(--card2);border-right:1px solid var(--border);padding:24px 0;flex-shrink:0;display:flex;flex-direction:column;position:fixed;height:100vh;z-index:10}
+.logo{padding:0 20px 24px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.logo-name{font-size:18px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 20px;font-size:13px;font-weight:500;color:var(--text2);text-decoration:none;border-radius:0;transition:all .15s;border-left:3px solid transparent}
+.nav-item:hover{background:rgba(255,255,255,0.04);color:var(--text1)}
+.nav-item.active{background:rgba(79,142,247,0.1);color:var(--accent);border-left-color:var(--accent)}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.sidebar-bottom{margin-top:auto;padding:16px 20px;border-top:1px solid var(--border)}
+.ext-link{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.2);color:var(--accent);font-size:12px;font-weight:600;text-decoration:none}
+.ext-link:hover{background:rgba(79,142,247,0.15)}
+/* Main */
+.main{margin-left:240px;flex:1;padding:32px;min-height:100vh}
+.page-header{margin-bottom:28px}
+.page-title{font-size:26px;font-weight:800;margin-bottom:6px}
+.page-sub{font-size:14px;color:var(--text2)}
+/* Toolbar */
+.toolbar{display:flex;gap:12px;align-items:center;margin-bottom:24px;flex-wrap:wrap}
+.sem-btn{padding:8px 20px;border-radius:24px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text2);transition:all .2s}
+.sem-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.ml-auto{margin-left:auto}
+.btn{padding:9px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s;display:inline-flex;align-items:center;gap:7px}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.btn-primary:hover{opacity:.85}
+.btn-green{background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:var(--green)}
+.btn-green:hover{background:rgba(34,197,94,0.2)}
+.btn-ghost{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text2)}
+.btn-ghost:hover{color:var(--text1)}
+/* Card */
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.card-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.card-title{font-size:15px;font-weight:700;flex:1}
+.badge{font-size:11px;padding:3px 10px;border-radius:10px;font-weight:600}
+.badge-blue{background:rgba(79,142,247,0.15);color:var(--accent)}
+.badge-green{background:rgba(34,197,94,0.12);color:var(--green)}
+/* Section tabs */
+.sec-tabs{display:flex;gap:0;border-bottom:1px solid var(--border)}
+.sec-tab{padding:12px 24px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;transition:all .2s}
+.sec-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+/* Table */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{padding:11px 16px;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;text-align:left;background:rgba(255,255,255,0.02)}
+td{padding:11px 16px;font-size:13px;border-top:1px solid var(--border)}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.usn{font-family:monospace;font-size:12px;color:var(--text2)}
+/* Add student form */
+.add-form{padding:18px 22px;background:rgba(79,142,247,0.04);border-top:1px solid var(--border);display:none}
+.add-form.show{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase}
+.form-input{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text1);font-size:13px;outline:none;min-width:180px}
+.form-input:focus{border-color:var(--accent)}
+/* Sync notice */
+.sync-notice{background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:14px 18px;font-size:13px;color:var(--text2);margin-bottom:22px;display:flex;align-items:center;gap:12px}
+.empty-state{padding:48px;text-align:center;color:var(--text2);font-size:14px}
+.del-btn{background:transparent;border:none;color:var(--text2);cursor:pointer;padding:4px 8px;border-radius:4px;font-size:14px}
+.del-btn:hover{color:var(--red)}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-name">👁 FaceGuard</div>
+    <div class="logo-sub">Recognition System</div>
+  </div>
+  <a href="/" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+  <a href="/students" class="nav-item active"><span class="nav-icon">👥</span> Students</a>
+  <a href="/attendance" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+  <div class="sidebar-bottom">
+    <a href="http://localhost:5001" target="_blank" class="ext-link">📅 Timetable Generator ↗</a>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+  <div class="page-header">
+    <div class="page-title">Student Database</div>
+    <div class="page-sub">Manage student lists by semester. Used for attendance lookup and timetable display on the ESP32.</div>
+  </div>
+
+  <!-- Sync notice -->
+  <div class="sync-notice">
+    <span style="font-size:18px">🔄</span>
+    <div>
+      <strong style="color:var(--text1)">Sync from Timetable Maker</strong><br>
+      If you've already added students in the Timetable Generator, click Sync to import them automatically.
+    </div>
+    <button class="btn btn-green ml-auto" onclick="syncFromTimetable()" id="sync-btn">⟳ Sync Now</button>
+  </div>
+
+  <!-- Semester selector -->
+  <div class="toolbar">
+    <div id="sem-tabs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    <div class="ml-auto" style="display:flex;gap:8px">
+      <button class="btn btn-ghost" onclick="toggleAddForm()">+ Add Student</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('csv-input').click()">⬆ Upload CSV</button>
+      <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="uploadCSV(event)"/>
+      <button class="btn btn-primary" onclick="addSemModal()">+ New Semester</button>
+    </div>
+  </div>
+
+  <!-- Student table card -->
+  <div class="card" id="students-card">
+    <div class="card-header">
+      <div class="card-title" id="card-title">Select a semester above</div>
+      <span class="badge badge-blue" id="count-badge">0 students</span>
+    </div>
+    <!-- Section tabs -->
+    <div class="sec-tabs" id="sec-tabs">
+      <div class="sec-tab active" onclick="switchSection('A')" id="tab-A">Section A</div>
+      <div class="sec-tab" onclick="switchSection('B')" id="tab-B">Section B</div>
+    </div>
+    <!-- Add form -->
+    <div class="add-form" id="add-form">
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input class="form-input" id="inp-name" placeholder="e.g. John Doe"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">USN / Roll No.</label>
+        <input class="form-input" id="inp-usn" placeholder="e.g. 4SO21EC001"/>
+      </div>
+      <button class="btn btn-primary" onclick="addStudent()" style="margin-top:20px">Add</button>
+      <button class="btn btn-ghost" onclick="toggleAddForm()" style="margin-top:20px">Cancel</button>
+    </div>
+    <!-- Table -->
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Name</th><th>USN / Roll No.</th><th style="width:60px"></th></tr>
+        </thead>
+        <tbody id="students-tbody">
+          <tr><td colspan="4" class="empty-state">Select a semester to view students</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+// Data from server
+const SERVER_DB = {{ db | tojson }};
+const SERVER_SEMS = {{ semesters | tojson }};
+
+let db = JSON.parse(JSON.stringify(SERVER_DB));  // deep copy
+let activeSem = SERVER_SEMS[0] || null;
+let activeSection = 'A';
+
+// Build semester tabs
+function buildSemTabs() {
+  const wrap = document.getElementById('sem-tabs');
+  wrap.innerHTML = '';
+  const sems = Object.keys(db).sort((a,b)=>parseInt(a)-parseInt(b));
+  const ORD = ['','1st','2nd','3rd','4th','5th','6th','7th','8th'];
+  sems.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'sem-btn' + (s === activeSem ? ' active' : '');
+    btn.textContent = (ORD[parseInt(s)] || s+'th') + ' Sem';
+    btn.onclick = () => { activeSem = s; buildSemTabs(); renderTable(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function switchSection(sec) {
+  activeSection = sec;
+  document.getElementById('tab-A').className = 'sec-tab' + (sec==='A'?' active':'');
+  document.getElementById('tab-B').className = 'sec-tab' + (sec==='B'?' active':'');
+  renderTable();
+}
+
+function renderTable() {
+  if (!activeSem) return;
+  const ORD = ['','1st','2nd','3rd','4th','5th','6th','7th','8th'];
+  document.getElementById('card-title').textContent =
+    `${ORD[parseInt(activeSem)] || activeSem+'th'} Semester — Section ${activeSection}`;
+  const students = (db[activeSem] || {})[activeSection] || [];
+  document.getElementById('count-badge').textContent = students.length + ' students';
+  const tbody = document.getElementById('students-tbody');
+  if (students.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No students in this section yet. Add one or upload a CSV.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = students.map((s, i) => `
+    <tr>
+      <td style="color:var(--text2)">${i+1}</td>
+      <td>${s.name || '—'}</td>
+      <td class="usn">${s.usn || '—'}</td>
+      <td><button class="del-btn" onclick="deleteStudent(${i})" title="Remove">✕</button></td>
+    </tr>`).join('');
+}
+
+function toggleAddForm() {
+  const f = document.getElementById('add-form');
+  f.classList.toggle('show');
+}
+
+function addStudent() {
+  if (!activeSem) { alert('Select a semester first'); return; }
+  const name = document.getElementById('inp-name').value.trim();
+  const usn  = document.getElementById('inp-usn').value.trim();
+  if (!name) { alert('Name is required'); return; }
+  db[activeSem] = db[activeSem] || {};
+  db[activeSem][activeSection] = db[activeSem][activeSection] || [];
+  db[activeSem][activeSection].push({ name, usn });
+  document.getElementById('inp-name').value = '';
+  document.getElementById('inp-usn').value  = '';
+  renderTable();
+  saveSection();
+}
+
+function deleteStudent(idx) {
+  if (!confirm('Remove this student?')) return;
+  db[activeSem][activeSection].splice(idx, 1);
+  renderTable();
+  saveSection();
+}
+
+async function saveSection() {
+  const students = (db[activeSem] || {})[activeSection] || [];
+  await fetch('/api/students', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ semester: activeSem, section: activeSection, students })
+  });
+}
+
+function uploadCSV(event) {
+  if (!activeSem) { alert('Select a semester first'); return; }
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n').map(l=>l.trim()).filter(Boolean);
+    const students = [];
+    lines.forEach((line, idx) => {
+      if (idx === 0 && line.toLowerCase().includes('name')) return; // skip header
+      const parts = line.split(',');
+      const name = (parts[0]||'').trim();
+      const usn  = (parts[1]||'').trim();
+      if (name) students.push({ name, usn });
+    });
+    db[activeSem] = db[activeSem] || {};
+    db[activeSem][activeSection] = students;
+    renderTable();
+    saveSection();
+    alert(`Imported ${students.length} students into Sem ${activeSem} Section ${activeSection}`);
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+async function syncFromTimetable() {
+  const btn = document.getElementById('sync-btn');
+  btn.textContent = 'Syncing...';
+  btn.disabled = true;
+  try {
+    const res  = await fetch('/api/students/sync');
+    const data = await res.json();
+    if (data.success) {
+      // Reload page data
+      const dbRes = await fetch('/api/students');
+      const newDb = await dbRes.json();
+      Object.assign(db, newDb);
+      buildSemTabs();
+      renderTable();
+      btn.textContent = `✓ Imported ${data.imported} students`;
+      btn.style.color = 'var(--green)';
+    } else {
+      alert('Sync failed: ' + data.error);
+      btn.textContent = '⟳ Sync Now';
+    }
+  } catch(e) {
+    alert('Network error during sync');
+    btn.textContent = '⟳ Sync Now';
+  }
+  btn.disabled = false;
+}
+
+function addSemModal() {
+  const s = prompt('Enter semester number (e.g. 4):');
+  if (!s || !s.trim()) return;
+  const sem = s.trim();
+  if (!db[sem]) { db[sem] = { A: [], B: [] }; }
+  activeSem = sem;
+  buildSemTabs();
+  renderTable();
+}
+
+// Init
+buildSemTabs();
+if (activeSem) renderTable();
+</script>
+</body>
+</html>

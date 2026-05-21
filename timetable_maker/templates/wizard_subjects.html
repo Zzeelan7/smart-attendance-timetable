@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Step 2 — Subjects</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{--accent:#4f8ef7;--accent2:#7c5cf6;--green:#22c55e;--bg:#0f172a;--card:#1e293b;--card2:#162032;--border:rgba(255,255,255,0.08);--text1:#f1f5f9;--text2:#94a3b8;--red:#f87171}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text1);min-height:100vh}
+.topbar{background:rgba(15,23,42,0.95);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;gap:20px;position:sticky;top:0;z-index:50;backdrop-filter:blur(20px)}
+.back{color:var(--text2);text-decoration:none;font-size:14px;display:flex;align-items:center;gap:6px}.back:hover{color:var(--text1)}
+.steps{display:flex;align-items:center;gap:6px;margin-left:auto}
+.step{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid var(--border);color:var(--text2);background:var(--card)}
+.step.active{border-color:var(--accent);color:#fff;background:var(--accent)}
+.step.done{border-color:var(--green);color:var(--green);background:rgba(34,197,94,0.1)}
+.step-line{width:24px;height:2px;background:var(--border);border-radius:2px}
+.step-line.done{background:var(--green)}
+.wrap{max-width:900px;margin:0 auto;padding:40px 24px 100px}
+h2{font-size:26px;font-weight:800;margin-bottom:8px}
+.subtitle{color:var(--text2);font-size:14px;margin-bottom:32px}
+.sem-block{background:var(--card);border:1px solid var(--border);border-radius:16px;margin-bottom:24px}
+.sem-head{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;cursor:pointer}
+.sem-badge{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px}
+.sem-name{font-size:16px;font-weight:700;flex:1}
+.toggle-icon{color:var(--text2);font-size:18px;transition:transform .2s}
+.collapsed .toggle-icon{transform:rotate(-90deg)}
+.sem-body{padding:24px}
+.collapsed .sem-body{display:none}
+
+/* Subject table */
+.subj-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px}
+.subj-table th{text-align:left;color:var(--text2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:0 8px 10px;border-bottom:1px solid var(--border)}
+.subj-table td{padding:6px 8px;vertical-align:top}
+.subj-table tr:not(:last-child) td{border-bottom:1px solid rgba(255,255,255,0.04)}
+.inp{width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text1);font-size:13px;font-family:inherit;outline:none;transition:border-color .2s}
+.inp:focus{border-color:var(--accent)}
+.sel{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text1);font-size:13px;font-family:inherit;outline:none}
+.inp-num{width:60px}
+.toggle-btn{width:40px;height:24px;border-radius:12px;border:none;cursor:pointer;position:relative;transition:background .2s;background:rgba(255,255,255,0.1)}
+.toggle-btn.on{background:var(--green)}
+.toggle-btn::after{content:'';position:absolute;width:18px;height:18px;background:#fff;border-radius:50%;top:3px;left:3px;transition:transform .2s}
+.toggle-btn.on::after{transform:translateX(16px)}
+.del-btn{width:28px;height:28px;border-radius:8px;border:none;background:rgba(248,113,113,0.1);color:var(--red);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.del-btn:hover{background:rgba(248,113,113,0.2)}
+.add-btn{display:flex;align-items:center;gap:8px;background:rgba(79,142,247,0.08);border:1px dashed rgba(79,142,247,0.3);border-radius:10px;padding:10px 16px;color:var(--accent);font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;width:100%}
+.add-btn:hover{background:rgba(79,142,247,0.14);border-color:var(--accent)}
+.footer-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(15,23,42,0.97);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:18px 40px;display:flex;justify-content:space-between;align-items:center;z-index:100}
+.btn{padding:12px 32px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:none;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-ghost:hover{color:var(--text1)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}.btn-primary:hover{opacity:.85}
+.hint{font-size:11px;color:var(--text2);margin-top:4px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="/wizard/students?sems={{ sems_csv }}" class="back">← Back</a>
+  <div class="steps">
+    <div class="step done">✓</div><div class="step-line done"></div>
+    <div class="step active">2</div><div class="step-line"></div>
+    <div class="step">3</div><div class="step-line"></div>
+    <div class="step">4</div><div class="step-line"></div>
+    <div class="step">5</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <h2>Step 2 — Subject Configuration</h2>
+  <p class="subtitle">Add all subjects for each semester. Set credits, hours per week, subject type, and mark electives.</p>
+
+  <form id="main-form" method="POST" action="/wizard/subjects">
+    <input type="hidden" name="sems" value="{{ sems_csv }}"/>
+    <input type="hidden" name="subjects_json" id="subjects-json"/>
+
+    {% for sem in semesters %}
+    {% set ord = ['','1st','2nd','3rd','4th','5th','6th','7th','8th'][sem] %}
+    <div class="sem-block" id="block-{{ sem }}">
+      <div class="sem-head" onclick="toggleBlock({{ sem }})">
+        <div class="sem-badge">SEM {{ sem }}</div>
+        <div class="sem-name">{{ ord }} Semester</div>
+        <span class="toggle-icon">▾</span>
+      </div>
+      <div class="sem-body">
+        <table class="subj-table">
+          <thead>
+            <tr>
+              <th style="width:200px">Subject Name</th>
+              <th style="width:100px">Code</th>
+              <th style="width:55px">Credits</th>
+              <th style="width:55px">Hrs/Wk</th>
+              <th style="width:110px">Type</th>
+              <th style="width:60px">Elective</th>
+              <th style="width:30px"></th>
+            </tr>
+          </thead>
+          <tbody id="tbody-{{ sem }}">
+          </tbody>
+        </table>
+        <button type="button" class="add-btn" onclick="addRow({{ sem }})">+ Add Subject</button>
+        <div class="hint" style="margin-top:8px">Labs linked to theory subjects are assigned automatically in the next step.</div>
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="footer-bar">
+      <a href="/wizard/students?sems={{ sems_csv }}" class="btn btn-ghost">← Back</a>
+      <button type="submit" class="btn btn-primary" onclick="collect()">Next — Teachers →</button>
+    </div>
+  </form>
+</div>
+
+<script>
+const SEMS = {{ semesters|tojson }};
+const data = {};
+SEMS.forEach(s => { data[s] = []; addRow(s); });
+
+function addRow(sem){
+  const tbody = document.getElementById('tbody-'+sem);
+  const idx = data[sem].length;
+  data[sem].push({});
+  const tr = document.createElement('tr');
+  tr.id = `row-${sem}-${idx}`;
+  tr.innerHTML = `
+    <td><input class="inp" placeholder="e.g. Mathematics" oninput="set(${sem},${idx},'name',this.value)"/></td>
+    <td><input class="inp" placeholder="MA401" oninput="set(${sem},${idx},'code',this.value)"/></td>
+    <td><input class="inp inp-num" type="number" min="1" max="5" value="3" oninput="set(${sem},${idx},'credits',+this.value)"/></td>
+    <td><input class="inp inp-num" type="number" min="1" max="8" value="3" oninput="set(${sem},${idx},'hours',+this.value)"/></td>
+    <td><select class="sel" onchange="set(${sem},${idx},'type',this.value)">
+      <option value="theory">Theory</option>
+      <option value="lab">Lab only</option>
+      <option value="theory+lab">Theory + Lab</option>
+    </select></td>
+    <td style="text-align:center"><button type="button" class="toggle-btn" id="elec-${sem}-${idx}" onclick="toggleElec(${sem},${idx},this)"></button></td>
+    <td><button type="button" class="del-btn" onclick="delRow(${sem},${idx})">×</button></td>`;
+  tbody.appendChild(tr);
+  set(sem,idx,'credits',3); set(sem,idx,'hours',3); set(sem,idx,'type','theory'); set(sem,idx,'elective',false);
+}
+
+function set(sem,idx,key,val){ if(data[sem][idx] !== undefined) data[sem][idx][key]=val; }
+function toggleElec(sem,idx,btn){ const v=!data[sem][idx].elective; set(sem,idx,'elective',v); btn.classList.toggle('on',v); }
+function delRow(sem,idx){ data[sem][idx]=null; document.getElementById(`row-${sem}-${idx}`).remove(); }
+function toggleBlock(sem){ document.getElementById('block-'+sem).classList.toggle('collapsed'); }
+
+function collect(){
+  // Clean nulls
+  const out = {};
+  SEMS.forEach(s => { out[s] = data[s].filter(r=>r&&r.name); });
+  document.getElementById('subjects-json').value = JSON.stringify(out);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Attendance Records — FaceGuard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{--accent:#4f8ef7;--accent2:#7c5cf6;--green:#22c55e;--red:#f87171;--amber:#f59e0b;--bg:#0f172a;--card:#1e293b;--card2:#162032;--border:rgba(255,255,255,0.08);--text1:#f1f5f9;--text2:#94a3b8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text1);min-height:100vh;display:flex}
+.sidebar{width:240px;background:var(--card2);border-right:1px solid var(--border);padding:24px 0;flex-shrink:0;display:flex;flex-direction:column;position:fixed;height:100vh;z-index:10}
+.logo{padding:0 20px 24px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.logo-name{font-size:18px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 20px;font-size:13px;font-weight:500;color:var(--text2);text-decoration:none;transition:all .15s;border-left:3px solid transparent}
+.nav-item:hover{background:rgba(255,255,255,0.04);color:var(--text1)}
+.nav-item.active{background:rgba(79,142,247,0.1);color:var(--accent);border-left-color:var(--accent)}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.sidebar-bottom{margin-top:auto;padding:16px 20px;border-top:1px solid var(--border)}
+.ext-link{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.2);color:var(--accent);font-size:12px;font-weight:600;text-decoration:none}
+.ext-link:hover{background:rgba(79,142,247,0.15)}
+.main{margin-left:240px;flex:1;padding:32px;min-height:100vh}
+.page-header{margin-bottom:28px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.page-title{font-size:26px;font-weight:800;margin-bottom:6px}
+.page-sub{font-size:14px;color:var(--text2)}
+/* Stats row */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:26px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+.stat-val{font-size:28px;font-weight:800;line-height:1}
+.stat-label{font-size:12px;color:var(--text2);margin-top:4px}
+.stat-blue{color:var(--accent)}
+.stat-green{color:var(--green)}
+.stat-amber{color:var(--amber)}
+/* Filters */
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:center}
+.filter-input{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text1);font-size:13px;outline:none}
+.filter-input:focus{border-color:var(--accent)}
+.btn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-ghost{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text2)}
+.btn-ghost:hover{color:var(--text1)}
+.btn-red{background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.2);color:var(--red)}
+.btn-red:hover{background:rgba(248,113,113,0.2)}
+.ml-auto{margin-left:auto}
+/* Table */
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.card-title{font-size:15px;font-weight:700;flex:1}
+.badge{font-size:11px;padding:3px 10px;border-radius:10px;font-weight:600;background:rgba(79,142,247,0.15);color:var(--accent)}
+.tbl-wrap{overflow-x:auto;max-height:60vh;overflow-y:auto}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 16px;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;text-align:left;background:rgba(255,255,255,0.02);position:sticky;top:0}
+td{padding:11px 16px;font-size:13px;border-top:1px solid var(--border);vertical-align:middle}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 8px;border-radius:6px;font-weight:600}
+.pill-green{background:rgba(34,197,94,0.12);color:var(--green)}
+.pill-blue{background:rgba(79,142,247,0.12);color:var(--accent)}
+.pill-amber{background:rgba(245,158,11,0.12);color:var(--amber)}
+.mono{font-family:monospace;font-size:12px;color:var(--text2)}
+.empty-state{padding:60px;text-align:center;color:var(--text2);font-size:14px}
+/* Live indicator */
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.live-row{display:flex;align-items:center;gap:8px;background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-name">👁 FaceGuard</div>
+    <div class="logo-sub">Recognition System</div>
+  </div>
+  <a href="/" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+  <a href="/students" class="nav-item"><span class="nav-icon">👥</span> Students</a>
+  <a href="/attendance" class="nav-item active"><span class="nav-icon">📋</span> Attendance</a>
+  <div class="sidebar-bottom">
+    <a href="http://localhost:5001" target="_blank" class="ext-link">📅 Timetable Generator ↗</a>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Attendance Records</div>
+      <div class="page-sub">Face + fingerprint verified attendance logs from the ESP32 kiosk.</div>
+    </div>
+    <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
+  </div>
+
+  <!-- Live ESP32 status -->
+  <div class="live-row" id="live-row">
+    <div class="live-dot"></div>
+    <span id="live-status">Connecting to ESP32 state...</span>
+    <span class="ml-auto mono" id="live-ts"></span>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-val stat-blue" id="s-total">{{records|length}}</div><div class="stat-label">Total Records</div></div>
+    <div class="stat-card"><div class="stat-val stat-green" id="s-today">0</div><div class="stat-label">Today's Entries</div></div>
+    <div class="stat-card"><div class="stat-val stat-amber" id="s-unique">0</div><div class="stat-label">Unique Students</div></div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <input class="filter-input" id="f-name" placeholder="Search name..." oninput="applyFilters()"/>
+    <input class="filter-input" type="date" id="f-date" oninput="applyFilters()"/>
+    <input class="filter-input" id="f-sem" placeholder="Semester (e.g. 4)" oninput="applyFilters()"/>
+    <button class="btn btn-ghost ml-auto" onclick="clearFilters()">Clear</button>
+    <button class="btn btn-red" onclick="confirmClear()">🗑 Clear All</button>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Records</div>
+      <span class="badge" id="count-badge">{{records|length}}</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th><th>Name</th><th>USN</th><th>Sem</th><th>Section</th><th>Day</th><th>Verification</th>
+          </tr>
+        </thead>
+        <tbody id="records-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+const ALL_RECORDS = {{ records | tojson }};
+let filtered = [...ALL_RECORDS];
+
+function fmtTime(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return d.toLocaleDateString('en-IN', {day:'2-digit',month:'short'}) + ' ' +
+         d.toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'});
+}
+
+function renderTable() {
+  const tbody = document.getElementById('records-tbody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No records found.</td></tr>';
+    document.getElementById('count-badge').textContent = '0';
+    return;
+  }
+  document.getElementById('count-badge').textContent = filtered.length;
+  tbody.innerHTML = filtered.map(r => `
+    <tr>
+      <td class="mono">${fmtTime(r.timestamp)}</td>
+      <td style="font-weight:600">${r.name || '—'}</td>
+      <td class="mono">${r.usn || '—'}</td>
+      <td><span class="pill pill-blue">Sem ${r.semester || '?'}</span></td>
+      <td><span class="pill pill-amber">Sec ${r.section || '?'}</span></td>
+      <td>${r.day || '—'}</td>
+      <td><span class="pill pill-green">✓ ${r.verification || 'verified'}</span></td>
+    </tr>`).join('');
+}
+
+function calcStats() {
+  const today = new Date().toISOString().slice(0,10);
+  const todayRecs = ALL_RECORDS.filter(r => r.date === today);
+  const unique = new Set(ALL_RECORDS.map(r => r.name)).size;
+  document.getElementById('s-today').textContent = todayRecs.length;
+  document.getElementById('s-unique').textContent = unique;
+}
+
+function applyFilters() {
+  const name = document.getElementById('f-name').value.toLowerCase();
+  const date = document.getElementById('f-date').value;
+  const sem  = document.getElementById('f-sem').value.trim();
+  filtered = ALL_RECORDS.filter(r => {
+    if (name && !r.name?.toLowerCase().includes(name)) return false;
+    if (date && r.date !== date) return false;
+    if (sem  && String(r.semester) !== sem) return false;
+    return true;
+  });
+  renderTable();
+}
+
+function clearFilters() {
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-date').value = '';
+  document.getElementById('f-sem').value  = '';
+  filtered = [...ALL_RECORDS];
+  renderTable();
+}
+
+async function confirmClear() {
+  if (!confirm('Delete ALL attendance records? This cannot be undone.')) return;
+  await fetch('/api/attendance/log', {method:'DELETE'});
+  location.reload();
+}
+
+function exportCSV() {
+  const rows = [['Time','Name','USN','Semester','Section','Day','Verification']];
+  filtered.forEach(r => rows.push([r.timestamp,r.name,r.usn,r.semester,r.section,r.day,r.verification]));
+  const csv = rows.map(r => r.map(v => `"${v||''}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = `attendance_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// Live ESP32 status polling
+async function pollESP32() {
+  try {
+    const res  = await fetch('/api/esp32/poll');
+    const data = await res.json();
+    const el   = document.getElementById('live-status');
+    const ts   = document.getElementById('live-ts');
+    const state = data.state;
+    if (state === 'idle') {
+      el.textContent = 'ESP32 Kiosk: Idle — waiting for person';
+    } else if (state === 'face_detected') {
+      el.textContent = `👤 Face detected: ${data.name} (${(data.confidence*100).toFixed(0)}% confidence) — awaiting fingerprint`;
+    } else if (state === 'not_registered') {
+      el.textContent = '⚠ Unknown face detected — not registered in system';
+    }
+    ts.textContent = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : '';
+  } catch(e) {
+    document.getElementById('live-status').textContent = 'ESP32 state unavailable';
+  }
+}
+
+// Auto-refresh records every 10 s
+async function refreshRecords() {
+  try {
+    const res = await fetch('/api/attendance/log');
+    const data = await res.json();
+    // Update stats dynamically
+    document.getElementById('s-total').textContent = data.total;
+  } catch(e) {}
+}
+
+// Init
+renderTable();
+calcStats();
+pollESP32();
+setInterval(pollESP32, 2000);
+setInterval(refreshRecords, 10000);
+</script>
+</body>
+</html>

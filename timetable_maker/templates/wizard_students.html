@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Step 1 — Student Lists</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{--accent:#4f8ef7;--accent2:#7c5cf6;--green:#22c55e;--bg:#0f172a;--card:#1e293b;--card2:#162032;--border:rgba(255,255,255,0.08);--text1:#f1f5f9;--text2:#94a3b8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text1);min-height:100vh}
+.topbar{background:rgba(15,23,42,0.95);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;gap:20px;position:sticky;top:0;z-index:50;backdrop-filter:blur(20px)}
+.back{color:var(--text2);text-decoration:none;font-size:14px;display:flex;align-items:center;gap:6px;transition:color .2s}.back:hover{color:var(--text1)}
+.steps{display:flex;align-items:center;gap:6px;margin-left:auto}
+.step{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid var(--border);color:var(--text2);background:var(--card)}
+.step.active{border-color:var(--accent);color:#fff;background:var(--accent)}
+.step.done{border-color:var(--green);color:var(--green);background:rgba(34,197,94,0.1)}
+.step-line{width:24px;height:2px;background:var(--border);border-radius:2px}
+.step-line.done{background:var(--green)}
+.wrap{max-width:860px;margin:0 auto;padding:40px 24px 100px}
+h2{font-size:26px;font-weight:800;margin-bottom:8px}
+.subtitle{color:var(--text2);font-size:14px;margin-bottom:32px}
+.sem-block{background:var(--card);border:1px solid var(--border);border-radius:16px;margin-bottom:20px;overflow:hidden}
+.sem-head{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px}
+.sem-badge{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px}
+.sem-name{font-size:16px;font-weight:700}
+.sem-body{padding:24px}
+.upload-zone{border:2px dashed rgba(79,142,247,0.3);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(79,142,247,0.04);position:relative}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(79,142,247,0.08)}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-icon{font-size:32px;margin-bottom:8px}
+.upload-text{font-size:14px;font-weight:600;color:var(--text1);margin-bottom:4px}
+.upload-hint{font-size:12px;color:var(--text2)}
+.preview{margin-top:16px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:14px;display:none}
+.preview-head{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;justify-content:space-between}
+.sec-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px}
+.sec-box{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:10px 14px}
+.sec-label{font-size:11px;color:var(--text2);margin-bottom:4px}
+.sec-count{font-size:18px;font-weight:700;color:var(--green)}
+.sec-info{font-size:11px;color:var(--text2);margin-top:2px}
+.file-ok{color:var(--green);font-size:13px;font-weight:600;margin-top:8px;display:none}
+.skip-note{font-size:12px;color:var(--text2);margin-top:10px;font-style:italic}
+.footer-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(15,23,42,0.97);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:18px 40px;display:flex;justify-content:space-between;align-items:center;z-index:100}
+.btn{padding:12px 32px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:none;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-ghost:hover{color:var(--text1);border-color:rgba(255,255,255,0.2)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}.btn-primary:hover{opacity:.85}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="/" class="back">← Home</a>
+  <div class="steps">
+    <div class="step active">1</div><div class="step-line"></div>
+    <div class="step">2</div><div class="step-line"></div>
+    <div class="step">3</div><div class="step-line"></div>
+    <div class="step">4</div><div class="step-line"></div>
+    <div class="step">5</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <h2>Step 1 — Student Lists</h2>
+  <p class="subtitle">Upload the student list (CSV) for each selected semester. Each list will be auto-split into sections of ≤75 students with equal strength. You can skip any semester to proceed without students.</p>
+
+  <form id="main-form" method="POST" action="/wizard/students" enctype="multipart/form-data">
+    <input type="hidden" name="sems" value="{{ sems_csv }}"/>
+
+    {% for sem in semesters %}
+    {% set ord = ['','1st','2nd','3rd','4th','5th','6th','7th','8th'][sem] %}
+    <div class="sem-block">
+      <div class="sem-head">
+        <div class="sem-badge">SEM {{ sem }}</div>
+        <div class="sem-name">{{ ord }} Semester — ECE</div>
+      </div>
+      <div class="sem-body">
+        <div class="upload-zone" id="zone-{{ sem }}"
+             ondragover="event.preventDefault();this.classList.add('drag')"
+             ondragleave="this.classList.remove('drag')"
+             ondrop="handleDrop(event,{{ sem }})">
+          <input type="file" name="csv_{{ sem }}" accept=".csv"
+                 onchange="handleFile(this,{{ sem }})"/>
+          <div class="upload-icon">📄</div>
+          <div class="upload-text">Drop CSV file here or click to browse</div>
+          <div class="upload-hint">Format: Name, USN (one student per row)</div>
+        </div>
+        <div class="file-ok" id="ok-{{ sem }}">✓ File loaded — preview below</div>
+        <div class="preview" id="preview-{{ sem }}">
+          <div class="preview-head"><span>Auto-split Preview</span><span id="total-{{ sem }}"></span></div>
+          <div class="sec-row">
+            <div class="sec-box"><div class="sec-label">Section A</div><div class="sec-count" id="ca-{{ sem }}">—</div><div class="sec-info">students</div></div>
+            <div class="sec-box"><div class="sec-label">Section B</div><div class="sec-count" id="cb-{{ sem }}">—</div><div class="sec-info">students</div></div>
+          </div>
+        </div>
+        <div class="skip-note">No CSV? Leave blank to generate without student lists.</div>
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="footer-bar">
+      <a href="/" class="btn btn-ghost">← Back</a>
+      <button type="submit" class="btn btn-primary">Next — Subjects →</button>
+    </div>
+  </form>
+</div>
+
+<script>
+function handleFile(inp, sem){
+  const file = inp.files[0]; if(!file) return;
+  document.getElementById('ok-'+sem).style.display='block';
+  const reader = new FileReader();
+  reader.onload = e => parseCSV(e.target.result, sem);
+  reader.readAsText(file);
+}
+function handleDrop(ev, sem){
+  ev.preventDefault();
+  document.getElementById('zone-'+sem).classList.remove('drag');
+  const file = ev.dataTransfer.files[0];
+  if(!file || !file.name.endsWith('.csv')) return;
+  const inp = document.querySelector(`input[name="csv_${sem}"]`);
+  // Can't set file input directly, parse from drop
+  const reader = new FileReader();
+  reader.onload = e => { parseCSV(e.target.result, sem); document.getElementById('ok-'+sem).style.display='block'; };
+  reader.readAsText(file);
+}
+function parseCSV(text, sem){
+  const rows = text.trim().split('\n').filter(r=>r.trim()).slice(1); // skip header
+  const total = rows.length;
+  const half = Math.ceil(total/2);
+  const a = half, b = total - half;
+  document.getElementById('preview-'+sem).style.display='block';
+  document.getElementById('total-'+sem).textContent = total+' total students';
+  document.getElementById('ca-'+sem).textContent = a;
+  document.getElementById('cb-'+sem).textContent = b;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Step 4 — Constraints</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{--accent:#4f8ef7;--accent2:#7c5cf6;--green:#22c55e;--red:#f87171;--amber:#f59e0b;--bg:#0f172a;--card:#1e293b;--card2:#162032;--border:rgba(255,255,255,0.08);--text1:#f1f5f9;--text2:#94a3b8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text1);min-height:100vh}
+.topbar{background:rgba(15,23,42,0.95);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;gap:20px;position:sticky;top:0;z-index:50;backdrop-filter:blur(20px)}
+.back{color:var(--text2);text-decoration:none;font-size:14px}.back:hover{color:var(--text1)}
+.steps{display:flex;align-items:center;gap:6px;margin-left:auto}
+.step{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid var(--border);color:var(--text2);background:var(--card)}
+.step.active{border-color:var(--accent);color:#fff;background:var(--accent)}
+.step.done{border-color:var(--green);color:var(--green);background:rgba(34,197,94,0.1)}
+.step-line{width:24px;height:2px;background:var(--border);border-radius:2px}
+.step-line.done{background:var(--green)}
+.wrap{max-width:820px;margin:0 auto;padding:40px 24px 100px}
+h2{font-size:26px;font-weight:800;margin-bottom:8px}
+.subtitle{color:var(--text2);font-size:14px;margin-bottom:32px}
+.section-title{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.tag-hard{background:rgba(248,113,113,0.15);color:var(--red);font-size:11px;padding:3px 10px;border-radius:12px}
+.tag-soft{background:rgba(245,158,11,0.12);color:var(--amber);font-size:11px;padding:3px 10px;border-radius:12px}
+.constraint-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:10px;display:flex;align-items:flex-start;gap:16px;transition:border-color .2s}
+.constraint-card.active-hard{border-color:rgba(248,113,113,0.3);background:rgba(248,113,113,0.04)}
+.constraint-card.active-soft{border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.04)}
+.c-check{width:20px;height:20px;border-radius:6px;border:2px solid var(--border);background:transparent;cursor:pointer;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .2s}
+.c-check.on-hard{border-color:var(--red);background:rgba(248,113,113,0.2);color:var(--red)}
+.c-check.on-soft{border-color:var(--amber);background:rgba(245,158,11,0.15);color:var(--amber)}
+.c-body{flex:1}
+.c-title{font-size:14px;font-weight:600;margin-bottom:3px}
+.c-desc{font-size:12px;color:var(--text2);margin-bottom:10px}
+.c-controls{display:flex;gap:12px;flex-wrap:wrap;display:none}
+.c-controls.show{display:flex}
+.inp-sm{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text1);font-size:13px;width:80px;outline:none}
+.inp-sm:focus{border-color:var(--accent)}
+.lbl{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px}
+.divider{height:1px;background:var(--border);margin:28px 0}
+.add-custom{display:flex;gap:10px;margin-top:16px}
+.inp-custom{flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text1);font-size:13px;outline:none}
+.inp-custom:focus{border-color:var(--accent)}
+.type-sel{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text1);font-size:13px}
+.add-c-btn{background:rgba(79,142,247,0.1);border:1px solid rgba(79,142,247,0.3);color:var(--accent);border-radius:10px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer}
+.add-c-btn:hover{background:rgba(79,142,247,0.18)}
+.custom-list{margin-top:12px}
+.custom-item{display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:13px}
+.ci-tag{font-size:11px;padding:2px 8px;border-radius:6px}
+.ci-hard{background:rgba(248,113,113,0.15);color:var(--red)}
+.ci-soft{background:rgba(245,158,11,0.12);color:var(--amber)}
+.ci-del{margin-left:auto;background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:16px}
+.footer-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(15,23,42,0.97);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:18px 40px;display:flex;justify-content:space-between;align-items:center;z-index:100}
+.btn{padding:12px 32px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:none;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-ghost:hover{color:var(--text1)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}.btn-primary:hover{opacity:.85}
+.note{background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:12px 16px;font-size:13px;color:var(--text2);margin-bottom:28px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="/wizard/teachers?sems={{ sems_csv }}" class="back">← Back</a>
+  <div class="steps">
+    <div class="step done">✓</div><div class="step-line done"></div>
+    <div class="step done">✓</div><div class="step-line done"></div>
+    <div class="step done">✓</div><div class="step-line done"></div>
+    <div class="step active">4</div><div class="step-line"></div>
+    <div class="step">5</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <h2>Step 4 — Constraints</h2>
+  <p class="subtitle">Configure scheduling rules. Hard constraints must be satisfied — if impossible after multiple attempts, the system will ask you to amend or remove them. Soft constraints are best-effort.</p>
+
+  <div class="note">💡 If a hard constraint cannot be satisfied after 3 attempts, the result page will highlight it and ask you to amend or remove it before regenerating.</div>
+
+  <form id="main-form" method="POST" action="/wizard/constraints">
+    <input type="hidden" name="sems" value="{{ sems_csv }}"/>
+    <input type="hidden" name="constraints_json" id="c-json"/>
+
+    <!-- Hard Constraints -->
+    <div class="section-title">Hard Constraints <span class="tag-hard">Must Satisfy</span></div>
+
+    <div class="constraint-card" id="cc-max_p1">
+      <div class="c-check" id="ck-max_p1" onclick="toggleC('max_p1','hard')"></div>
+      <div class="c-body">
+        <div class="c-title">Max First-Period (P1) classes per teacher per week</div>
+        <div class="c-desc">No teacher should have more than X classes in the first period slot of the day.</div>
+        <div class="c-controls" id="ctrl-max_p1"><label class="lbl">Max P1 classes: <input class="inp-sm" type="number" min="1" max="5" value="2" id="val-max_p1"/></label></div>
+      </div>
+    </div>
+
+    <div class="constraint-card" id="cc-max_per_day">
+      <div class="c-check" id="ck-max_per_day" onclick="toggleC('max_per_day','hard')"></div>
+      <div class="c-body">
+        <div class="c-title">Max periods per teacher per day</div>
+        <div class="c-desc">A teacher cannot teach more than X periods in a single day.</div>
+        <div class="c-controls" id="ctrl-max_per_day"><label class="lbl">Max periods/day: <input class="inp-sm" type="number" min="1" max="6" value="4" id="val-max_per_day"/></label></div>
+      </div>
+    </div>
+
+    <div class="constraint-card" id="cc-no_backtoback">
+      <div class="c-check" id="ck-no_backtoback" onclick="toggleC('no_backtoback','hard')"></div>
+      <div class="c-body">
+        <div class="c-title">No back-to-back classes for teachers</div>
+        <div class="c-desc">Teachers must have at least one free period between consecutive teaching slots.</div>
+        <div class="c-controls" id="ctrl-no_backtoback"></div>
+      </div>
+    </div>
+
+    <div class="constraint-card" id="cc-labs_consecutive">
+      <div class="c-check" id="ck-labs_consecutive" onclick="toggleC('labs_consecutive','hard')"></div>
+      <div class="c-body">
+        <div class="c-title">Labs must be in consecutive periods</div>
+        <div class="c-desc">All lab sessions must occupy two adjacent time slots (e.g. P3+P4 or P5+P6).</div>
+        <div class="c-controls" id="ctrl-labs_consecutive"></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Soft Constraints -->
+    <div class="section-title">Soft Constraints <span class="tag-soft">Best Effort</span></div>
+
+    <div class="constraint-card" id="cc-min_p3">
+      <div class="c-check" id="ck-min_p3" onclick="toggleC('min_p3','soft')"></div>
+      <div class="c-body">
+        <div class="c-title">At least 1 third-period (P3) class per teacher per week</div>
+        <div class="c-desc">Try to give every teacher at least one class in the third period. Not always possible if slots are full.</div>
+        <div class="c-controls" id="ctrl-min_p3"></div>
+      </div>
+    </div>
+
+    <div class="constraint-card" id="cc-spread">
+      <div class="c-check" id="ck-spread" onclick="toggleC('spread','soft')"></div>
+      <div class="c-body">
+        <div class="c-title">Spread classes evenly across the week</div>
+        <div class="c-desc">Avoid stacking most classes on the same day. Distribute workload uniformly across Mon–Fri.</div>
+        <div class="c-controls" id="ctrl-spread"></div>
+      </div>
+    </div>
+
+    <div class="constraint-card" id="cc-free_day">
+      <div class="c-check" id="ck-free_day" onclick="toggleC('free_day','soft')"></div>
+      <div class="c-body">
+        <div class="c-title">Teachers should have at least one free day per week</div>
+        <div class="c-desc">Try to leave one full day free for each teacher (for research, meetings, preparation).</div>
+        <div class="c-controls" id="ctrl-free_day"></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Custom Constraints -->
+    <div class="section-title">Custom Constraints</div>
+    <div class="add-custom">
+      <input class="inp-custom" id="custom-text" placeholder="e.g. Dr. Smith unavailable on Fridays"/>
+      <select class="type-sel" id="custom-type"><option value="soft">Soft</option><option value="hard">Hard</option></select>
+      <button type="button" class="add-c-btn" onclick="addCustom()">+ Add</button>
+    </div>
+    <div class="custom-list" id="custom-list"></div>
+
+    <div class="divider"></div>
+
+    <!-- AI Configuration -->
+    <div id="ai-section">
+      <div class="section-title">
+        🤖 Gemini AI Constraint Parsing
+        <span id="ai-badge" style="font-size:11px;padding:3px 10px;border-radius:12px;background:rgba(100,100,100,0.15);color:#64748b;font-weight:500">Not configured</span>
+      </div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">When you add custom constraints above, Gemini AI will automatically read them and convert them into scheduling rules before generating the timetable. Configure your API key once and it is saved for all future runs.</p>
+
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input id="ai-key-input" type="password" placeholder="Paste your Gemini API key here..."
+          style="flex:1;min-width:260px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text1);font-size:13px;outline:none"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+        <button type="button" onclick="saveAiKey()"
+          style="background:rgba(79,142,247,0.12);border:1px solid rgba(79,142,247,0.3);color:var(--accent);border-radius:10px;padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer">
+          Save Key
+        </button>
+        <a href="https://aistudio.google.com/apikey" target="_blank"
+          style="font-size:12px;color:var(--text2);text-decoration:underline">
+          Get a free key ↗
+        </a>
+      </div>
+      <div id="ai-key-msg" style="margin-top:8px;font-size:12px;color:var(--text2)"></div>
+    </div>
+
+    <div class="footer-bar">
+      <a href="/wizard/teachers?sems={{ sems_csv }}" class="btn btn-ghost">← Back</a>
+      <button type="submit" class="btn btn-primary" onclick="collect()">Next — Review →</button>
+    </div>
+  </form>
+</div>
+
+<script>
+const active = {};
+const custom = [];
+
+function toggleC(id, type){
+  const isOn = active[id];
+  if(isOn){ delete active[id]; }
+  else { active[id] = type; }
+  const ck = document.getElementById('ck-'+id);
+  const card = document.getElementById('cc-'+id);
+  const ctrl = document.getElementById('ctrl-'+id);
+  ck.textContent = active[id] ? '✓' : '';
+  ck.className = 'c-check' + (active[id] ? ` on-${type}` : '');
+  card.className = 'constraint-card' + (active[id] ? ` active-${type}` : '');
+  if(ctrl) ctrl.classList.toggle('show', !!active[id]);
+}
+
+function addCustom(){
+  const txt = document.getElementById('custom-text').value.trim();
+  const type = document.getElementById('custom-type').value;
+  if(!txt) return;
+  const idx = custom.length;
+  custom.push({text:txt, type});
+  const li = document.createElement('div');
+  li.className = 'custom-item';
+  li.id = 'ci-'+idx;
+  li.innerHTML = `<span class="ci-tag ci-${type}">${type}</span><span>${txt}</span><button type="button" class="ci-del" onclick="delCustom(${idx})">×</button>`;
+  document.getElementById('custom-list').appendChild(li);
+  document.getElementById('custom-text').value = '';
+}
+
+function delCustom(idx){ custom[idx]=null; document.getElementById('ci-'+idx).remove(); }
+
+function collect(){
+  const hard=[], soft=[];
+  Object.entries(active).forEach(([id,type])=>{
+    const valEl = document.getElementById('val-'+id);
+    const entry = {id, value: valEl ? +valEl.value : true};
+    type==='hard' ? hard.push(entry) : soft.push(entry);
+  });
+  custom.filter(Boolean).forEach(c=> c.type==='hard' ? hard.push({id:'custom',text:c.text}) : soft.push({id:'custom',text:c.text}));
+  document.getElementById('c-json').value = JSON.stringify({hard,soft});
+}
+
+// ── AI key helpers ─────────────────────────────────────────────────
+function updateAiBadge(configured, masked) {
+  const badge = document.getElementById('ai-badge');
+  if (configured) {
+    badge.textContent = 'Configured ✓';
+    badge.style.background = 'rgba(34,197,94,0.12)';
+    badge.style.color = '#22c55e';
+    if (masked) document.getElementById('ai-key-msg').textContent = 'Key: ' + masked;
+  } else {
+    badge.textContent = 'Not configured';
+    badge.style.background = 'rgba(100,100,100,0.15)';
+    badge.style.color = '#64748b';
+  }
+}
+
+async function checkAiKey() {
+  try {
+    const res = await fetch('/api/ai-key');
+    const data = await res.json();
+    updateAiBadge(data.configured, data.masked);
+  } catch(e) {}
+}
+
+async function saveAiKey() {
+  const key = document.getElementById('ai-key-input').value.trim();
+  const msg = document.getElementById('ai-key-msg');
+  if (!key) { msg.textContent = 'Please paste your API key first.'; return; }
+  msg.textContent = 'Saving...';
+  try {
+    const res = await fetch('/api/ai-key', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({key})
+    });
+    const data = await res.json();
+    if (data.status === 'saved') {
+      msg.style.color = '#22c55e';
+      msg.textContent = 'API key saved successfully!';
+      document.getElementById('ai-key-input').value = '';
+      checkAiKey();
+    } else {
+      msg.style.color = '#f87171';
+      msg.textContent = 'Could not save: ' + (data.reason || 'unknown error');
+    }
+  } catch(e) {
+    msg.style.color = '#f87171';
+    msg.textContent = 'Network error — please try again.';
+  }
+}
+
+// Check key status on page load
+checkAiKey();
+</script>
+</body>
+</html>

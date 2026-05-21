@@ -4,117 +4,132 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Smart Timetable Generator — DSCE ECE</title>
-<meta name="description" content="Automated timetable generation for Dayananda Sagar College of Engineering, ECE Department"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/static/css/style.css"/>
+<style>
+:root{--accent:#4f8ef7;--accent2:#7c5cf6;--green:#22c55e;--bg:#0f172a;--card:#1e293b;--border:rgba(255,255,255,0.08);--text1:#f1f5f9;--text2:#94a3b8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text1);min-height:100vh}
+.home-bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.glow{position:absolute;border-radius:50%;filter:blur(80px);opacity:0.18}
+.glow-1{width:500px;height:500px;background:var(--accent);top:-100px;left:-100px}
+.glow-2{width:400px;height:400px;background:var(--accent2);bottom:-80px;right:-80px}
+.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:40px 24px 120px}
+
+/* Header */
+.header{display:flex;align-items:center;gap:16px;margin-bottom:40px}
+.logo svg{width:44px;height:44px}
+.site-title{font-size:24px;font-weight:800;background:linear-gradient(135deg,#fff,#94a3b8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.site-sub{font-size:13px;color:var(--text2);margin-top:2px}
+
+/* Cross-nav pill */
+.cross-nav{margin-left:auto}
+.cross-nav a{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text2);text-decoration:none;padding:9px 18px;border-radius:24px;font-size:13px;font-weight:500;transition:all .2s}
+.cross-nav a:hover{background:rgba(255,255,255,0.1);color:var(--text1);border-color:rgba(255,255,255,0.2)}
+
+/* Instruction */
+.inst{display:flex;align-items:center;gap:12px;background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.2);border-radius:12px;padding:14px 20px;margin-bottom:36px;font-size:14px;color:var(--text2)}
+.inst-icon{font-size:20px}
+
+/* Grid */
+.sem-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px}
+@media(max-width:768px){.sem-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* Cards */
+.sem-card{position:relative;background:var(--card);border:2px solid var(--border);border-radius:16px;padding:24px 20px;cursor:pointer;transition:all .25s;user-select:none;overflow:hidden}
+.sem-card:hover{border-color:rgba(79,142,247,0.4);transform:translateY(-3px);box-shadow:0 8px 30px rgba(0,0,0,0.3)}
+.sem-card.selected{border-color:var(--green);box-shadow:0 0 28px rgba(34,197,94,0.25);background:#0f2a1a}
+.sem-card.selected .check{opacity:1;transform:scale(1)}
+.sem-number{font-size:36px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;margin-bottom:6px}
+.sem-card.selected .sem-number{background:linear-gradient(135deg,var(--green),#16a34a);-webkit-background-clip:text}
+.sem-label{font-size:14px;font-weight:600;color:var(--text1);margin-bottom:8px}
+.sem-tag{font-size:11px;color:var(--text2);background:rgba(255,255,255,0.06);padding:3px 8px;border-radius:6px;display:inline-block}
+.sem-card.selected .sem-tag{background:rgba(34,197,94,0.15);color:var(--green)}
+.check{position:absolute;top:14px;right:14px;width:24px;height:24px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;opacity:0;transform:scale(0.5);transition:all .25s}
+
+/* Continue bar */
+.continue-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(15,23,42,0.97);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:18px 40px;display:flex;align-items:center;justify-content:space-between;transform:translateY(100%);transition:transform .35s cubic-bezier(.34,1.56,.64,1);z-index:100}
+.continue-bar.show{transform:translateY(0)}
+.sel-info{display:flex;flex-direction:column;gap:2px}
+.sel-label{font-size:13px;color:var(--text2)}
+.sel-detail{font-size:15px;font-weight:600;color:var(--text1)}
+.sel-sems{color:var(--green)}
+.continue-btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;padding:13px 36px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.3px;transition:opacity .2s}
+.continue-btn:hover{opacity:.85}
+</style>
 </head>
 <body>
-<div class="home-bg">
-  <div class="home-glow glow-1"></div>
-  <div class="home-glow glow-2"></div>
-</div>
+<div class="home-bg"><div class="glow glow-1"></div><div class="glow glow-2"></div></div>
 
-<div class="home-wrap">
-  <!-- Header -->
-  <header class="home-header">
-    <div class="logo-mark">
-      <svg viewBox="0 0 40 40" fill="none">
-        <rect width="40" height="40" rx="10" fill="url(#lg)"/>
-        <path d="M10 28V14l10-6 10 6v14l-10 6-10-6z" stroke="#fff" stroke-width="1.5" fill="none"/>
-        <path d="M20 8v24M10 14l10 6 10-6" stroke="#fff" stroke-width="1.2"/>
-        <defs><linearGradient id="lg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+<div class="wrap">
+  <header class="header">
+    <div class="logo">
+      <svg viewBox="0 0 44 44" fill="none">
+        <rect width="44" height="44" rx="11" fill="url(#lg)"/>
+        <path d="M11 31V15l11-7 11 7v16l-11 7-11-7z" stroke="#fff" stroke-width="1.5" fill="none"/>
+        <path d="M22 8v28M11 15l11 7 11-7" stroke="#fff" stroke-width="1.2"/>
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
           <stop stop-color="#4f8ef7"/><stop offset="1" stop-color="#7c5cf6"/>
         </linearGradient></defs>
       </svg>
     </div>
-    <div class="header-text">
-      <h1 class="site-title">Smart Timetable Generator</h1>
-      <p class="site-sub">Dayananda Sagar College of Engineering — ECE Department</p>
+    <div>
+      <div class="site-title">Smart Timetable Generator</div>
+      <div class="site-sub">Dayananda Sagar College of Engineering — ECE Department</div>
     </div>
-    <div class="header-badge">Phase 1</div>
+    <div class="cross-nav">
+      <a href="http://localhost:5000" target="_blank">👁️ &nbsp;Facial Recognition</a>
+    </div>
   </header>
 
-  <!-- Instruction -->
-  <div class="home-instructions">
-    <span class="inst-icon">👆</span>
-    <p>Select a semester to begin generating timetables for that semester's sections.</p>
+  <div class="inst">
+    <span class="inst-icon">📚</span>
+    <span>Select one or more semesters to generate timetables. You can select multiple semesters at once.</span>
   </div>
 
-  <!-- Semester Grid -->
   <div class="sem-grid" id="sem-grid">
-    <!-- Sem 1 -->
-    <a href="#" class="sem-card disabled" data-sem="1">
-      <div class="sem-number">01</div>
-      <div class="sem-label">1st Semester</div>
-      <div class="sem-badge coming">Coming Soon</div>
-    </a>
-    <!-- Sem 2 -->
-    <a href="#" class="sem-card disabled" data-sem="2">
-      <div class="sem-number">02</div>
-      <div class="sem-label">2nd Semester</div>
-      <div class="sem-badge coming">Coming Soon</div>
-    </a>
-    <!-- Sem 3 -->
-    <a href="#" class="sem-card disabled" data-sem="3">
-      <div class="sem-number">03</div>
-      <div class="sem-label">3rd Semester</div>
-      <div class="sem-badge coming">Coming Soon</div>
-    </a>
-    <!-- Sem 4 — ACTIVE -->
-    <a href="/semester/4" class="sem-card active" data-sem="4" id="sem4-card">
-      <div class="sem-glow"></div>
-      <div class="sem-number">04</div>
-      <div class="sem-label">4th Semester</div>
-      <div class="sem-badge live">Available ✓</div>
-      <div class="sem-detail">ECE — 2 Sections</div>
-      <div class="sem-arrow">→</div>
-    </a>
-    <!-- Sem 5 -->
-    <a href="#" class="sem-card disabled" data-sem="5">
-      <div class="sem-number">05</div>
-      <div class="sem-label">5th Semester</div>
-      <div class="sem-badge coming">Coming Soon</div>
-    </a>
-    <!-- Sem 6 -->
-    <a href="#" class="sem-card disabled" data-sem="6">
-      <div class="sem-number">06</div>
-      <div class="sem-label">6th Semester</div>
-      <div class="sem-badge coming">Coming Soon</div>
-    </a>
-    <!-- Sem 7 -->
-    <a href="#" class="sem-card disabled" data-sem="7">
-      <div class="sem-number">07</div>
-      <div class="sem-label">7th Semester</div>
-      <div class="sem-badge coming">Coming Soon</div>
-    </a>
-    <!-- Sem 8 -->
-    <a href="#" class="sem-card disabled" data-sem="8">
-      <div class="sem-number">08</div>
-      <div class="sem-label">8th Semester</div>
-      <div class="sem-badge coming">Coming Soon</div>
-    </a>
+    <div class="sem-card" data-sem="1" onclick="toggle(this)"><div class="check">✓</div><div class="sem-number">01</div><div class="sem-label">1st Semester</div><div class="sem-tag">ECE</div></div>
+    <div class="sem-card" data-sem="2" onclick="toggle(this)"><div class="check">✓</div><div class="sem-number">02</div><div class="sem-label">2nd Semester</div><div class="sem-tag">ECE</div></div>
+    <div class="sem-card" data-sem="3" onclick="toggle(this)"><div class="check">✓</div><div class="sem-number">03</div><div class="sem-label">3rd Semester</div><div class="sem-tag">ECE</div></div>
+    <div class="sem-card" data-sem="4" onclick="toggle(this)"><div class="check">✓</div><div class="sem-number">04</div><div class="sem-label">4th Semester</div><div class="sem-tag">ECE</div></div>
+    <div class="sem-card" data-sem="5" onclick="toggle(this)"><div class="check">✓</div><div class="sem-number">05</div><div class="sem-label">5th Semester</div><div class="sem-tag">ECE</div></div>
+    <div class="sem-card" data-sem="6" onclick="toggle(this)"><div class="check">✓</div><div class="sem-number">06</div><div class="sem-label">6th Semester</div><div class="sem-tag">ECE</div></div>
+    <div class="sem-card" data-sem="7" onclick="toggle(this)"><div class="check">✓</div><div class="sem-number">07</div><div class="sem-label">7th Semester</div><div class="sem-tag">ECE</div></div>
+    <div class="sem-card" data-sem="8" onclick="toggle(this)"><div class="check">✓</div><div class="sem-number">08</div><div class="sem-label">8th Semester</div><div class="sem-tag">ECE</div></div>
   </div>
-
-  <!-- Footer -->
-  <footer class="home-footer">
-    <span>Phase 1 — 4th Sem ECE, Sections A &amp; B</span>
-    <span class="dot">·</span>
-    <span>Academic Year 2025–26</span>
-    <span class="dot">·</span>
-    <span>DSCE ECE Department</span>
-  </footer>
 </div>
 
+<div class="continue-bar" id="bar">
+  <div class="sel-info">
+    <span class="sel-label">Semesters selected</span>
+    <span class="sel-detail"><span class="sel-sems" id="sel-list">—</span></span>
+  </div>
+  <button class="continue-btn" onclick="proceed()">Continue →</button>
+</div>
+
+<form id="wf" method="POST" action="/wizard/students" style="display:none">
+  <input type="hidden" name="sems" id="sems-val"/>
+</form>
+
 <script>
-  // Prevent click on disabled cards
-  document.querySelectorAll('.sem-card.disabled').forEach(card => {
-    card.addEventListener('click', e => {
-      e.preventDefault();
-      card.classList.add('shake');
-      setTimeout(() => card.classList.remove('shake'), 500);
-    });
-  });
+const sel = new Set();
+const ORD = {1:'1st',2:'2nd',3:'3rd',4:'4th',5:'5th',6:'6th',7:'7th',8:'8th'};
+function toggle(card){
+  const s = +card.dataset.sem;
+  sel.has(s) ? (sel.delete(s), card.classList.remove('selected')) : (sel.add(s), card.classList.add('selected'));
+  update();
+}
+function update(){
+  const arr = [...sel].sort((a,b)=>a-b);
+  document.getElementById('sel-list').textContent = arr.length ? arr.map(s=>ORD[s]+' Sem').join(', ') : '—';
+  document.getElementById('bar').classList.toggle('show', arr.length > 0);
+}
+function proceed(){
+  if(!sel.size) return;
+  document.getElementById('sems-val').value = [...sel].sort((a,b)=>a-b).join(',');
+  document.getElementById('wf').submit();
+}
 </script>
 </body>
 </html>

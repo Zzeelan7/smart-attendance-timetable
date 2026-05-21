@@ -91,9 +91,11 @@ def api_generate():
 
 @app.route('/result')
 def result_page():
+    result = _last_result or _load_result()
     return render_template('result.html',
                            days=DAYS,
-                           period_times=PERIOD_TIMES)
+                           period_times=PERIOD_TIMES,
+                           result_json=json.dumps(result))
 
 
 @app.route('/api/upload_students', methods=['POST'])
@@ -189,9 +191,231 @@ def api_subjects():
     return jsonify({'subjects': SUBJECTS_4SEM})
 
 
+# ── Wizard State (stored in a file, not cookie) ───────────────────
+_WIZARD_FILE = os.path.join(BASE_DIR, 'wizard_state.json')
+
+def _save_wizard(state: dict):
+    with open(_WIZARD_FILE, 'w', encoding='utf-8') as f:
+        json.dump(state, f)
+
+def _load_wizard() -> dict:
+    if os.path.exists(_WIZARD_FILE):
+        try:
+            with open(_WIZARD_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+# ── Step 0: Receive semester selection from home page ─────────────
+@app.route('/wizard/students', methods=['GET', 'POST'])
+def wizard_students():
+    if request.method == 'POST':
+        sems_raw = request.form.get('sems', '')
+        sems = [int(s) for s in sems_raw.split(',') if s.strip().isdigit()]
+        # Process uploaded CSVs
+        import csv, math
+        students = {}
+        for sem in sems:
+            f = request.files.get(f'csv_{sem}')
+            if f and f.filename:
+                text = f.read().decode('utf-8', errors='ignore')
+                rows = list(csv.reader(text.splitlines()))
+                # skip header row if first cell looks like 'name'
+                if rows and rows[0] and rows[0][0].strip().lower() in ('name','student name','sl no','sno'):
+                    rows = rows[1:]
+                parsed = []
+                for r in rows:
+                    name = r[0].strip() if len(r) > 0 else ''
+                    usn  = r[1].strip() if len(r) > 1 else ''
+                    if name:
+                        parsed.append({'name': name, 'usn': usn})
+                parsed.sort(key=lambda x: x['name'].upper())
+                total = len(parsed)
+                split = min(math.ceil(total / 2), 75)
+                students[str(sem)] = {
+                    'A': parsed[:split],
+                    'B': parsed[split:split+75],
+                }
+            else:
+                students[str(sem)] = {'A': [], 'B': []}
+        state = _load_wizard()
+        state.update({'semesters': sems, 'students': students, 'sems_csv': sems_raw})
+        _save_wizard(state)
+        return render_template('wizard_subjects.html',
+                               semesters=sems,
+                               sems_csv=sems_raw)
+    else:
+        # GET — from home page form
+        sems_raw = request.args.get('sems', '') or request.form.get('sems', '')
+        sems = [int(s) for s in sems_raw.split(',') if s.strip().isdigit()]
+        state = {'semesters': sems, 'sems_csv': sems_raw}
+        _save_wizard(state)
+        return render_template('wizard_students.html',
+                               semesters=sems,
+                               sems_csv=sems_raw)
+
+
+# ── Redirect from home POST ───────────────────────────────────────
+@app.route('/wizard/start', methods=['POST'])
+def wizard_start():
+    from flask import redirect, url_for
+    sems_raw = request.form.get('sems', '')
+    return redirect(url_for('wizard_students') + f'?sems={sems_raw}')
+
+
+# ── Step 2: Subjects ──────────────────────────────────────────────
+@app.route('/wizard/subjects', methods=['GET', 'POST'])
+def wizard_subjects():
+    state = _load_wizard()
+    sems = state.get('semesters', [])
+    sems_csv = state.get('sems_csv', ','.join(str(s) for s in sems))
+    if request.method == 'POST':
+        subjects_json = request.form.get('subjects_json', '{}')
+        try:
+            subjects = json.loads(subjects_json)
+        except Exception:
+            subjects = {}
+        state['subjects'] = subjects
+        _save_wizard(state)
+        return render_template('wizard_teachers.html',
+                               semesters=sems,
+                               sems_csv=sems_csv,
+                               subjects=subjects)
+    return render_template('wizard_subjects.html',
+                           semesters=sems,
+                           sems_csv=sems_csv)
+
+
+# ── Step 3: Teachers ──────────────────────────────────────────────
+@app.route('/wizard/teachers', methods=['GET', 'POST'])
+def wizard_teachers():
+    state = _load_wizard()
+    sems = state.get('semesters', [])
+    sems_csv = state.get('sems_csv', '')
+    subjects = state.get('subjects', {})
+    if request.method == 'POST':
+        # Parse teacher fields: t_{sem}_{subj_idx}_{role}
+        teachers = {}
+        for key, val in request.form.items():
+            if key.startswith('t_') and val.strip():
+                parts = key.split('_', 3)
+                if len(parts) == 4:
+                    _, sem, idx, role = parts
+                    teachers.setdefault(sem, {}).setdefault(idx, {})[role] = val.strip()
+        state['teachers'] = teachers
+        _save_wizard(state)
+        return render_template('wizard_constraints.html',
+                               semesters=sems,
+                               sems_csv=sems_csv)
+    return render_template('wizard_teachers.html',
+                           semesters=sems,
+                           sems_csv=sems_csv,
+                           subjects=subjects)
+
+
+# ── Step 4: Constraints ───────────────────────────────────────────
+@app.route('/wizard/constraints', methods=['GET', 'POST'])
+def wizard_constraints():
+    state = _load_wizard()
+    sems = state.get('semesters', [])
+    sems_csv = state.get('sems_csv', '')
+    if request.method == 'POST':
+        c_json = request.form.get('constraints_json', '{}')
+        try:
+            constraints = json.loads(c_json)
+        except Exception:
+            constraints = {'hard': [], 'soft': []}
+        state['constraints'] = constraints
+        _save_wizard(state)
+        subjects = state.get('subjects', {})
+        return render_template('wizard_review.html',
+                               semesters=sems,
+                               sems_csv=sems_csv,
+                               subjects=subjects,
+                               constraints=constraints)
+    return render_template('wizard_constraints.html',
+                           semesters=sems,
+                           sems_csv=sems_csv)
+
+
+# ── Step 5: Review page (GET) ─────────────────────────────────────
+@app.route('/wizard/review', methods=['GET', 'POST'])
+def wizard_review():
+    state = _load_wizard()
+    sems = state.get('semesters', [])
+    sems_csv = state.get('sems_csv', '')
+    subjects = state.get('subjects', {})
+    constraints = state.get('constraints', {'hard': [], 'soft': []})
+    return render_template('wizard_review.html',
+                           semesters=sems,
+                           sems_csv=sems_csv,
+                           subjects=subjects,
+                           constraints=constraints)
+
+
+# ── Step 5: Generate ─────────────────────────────────────────────
+@app.route('/wizard/generate', methods=['POST'])
+def wizard_generate():
+    global _last_result
+    from generator.generic_scheduler import generate_generic
+    from flask import redirect, url_for
+    state = _load_wizard()
+
+    # ── AI: parse custom constraints before scheduling ────────────
+    constraints = state.get('constraints', {'hard': [], 'soft': []})
+    custom_items = [
+        {'text': c['text'], 'type': 'hard'}
+        for c in constraints.get('hard', [])
+        if c.get('id') == 'custom' and c.get('text')
+    ] + [
+        {'text': c['text'], 'type': 'soft'}
+        for c in constraints.get('soft', [])
+        if c.get('id') == 'custom' and c.get('text')
+    ]
+    if custom_items:
+        try:
+            from generator.constraint_parser import parse_all_constraints
+            parsed = parse_all_constraints(custom_items)
+            state['parsed_constraints'] = parsed
+            _save_wizard(state)
+        except Exception as e:
+            app.logger.warning(f'AI constraint parsing skipped: {e}')
+
+    try:
+        result = generate_generic(state)
+        _last_result = result
+        _save_result(result)
+    except Exception as e:
+        import traceback
+        app.logger.error(traceback.format_exc())
+        _last_result = {'error': str(e), 'semesters': state.get('semesters', [])}
+        _save_result(_last_result)
+    return redirect(url_for('result_page'))
+
+
+# ── AI key management ─────────────────────────────────────────────
+@app.route('/api/ai-key', methods=['GET', 'POST'])
+def ai_key():
+    from generator.constraint_parser import load_api_key, save_api_key
+    if request.method == 'POST':
+        data = request.get_json(force=True)
+        key = (data or {}).get('key', '').strip()
+        if key:
+            save_api_key(key)
+            return jsonify({'status': 'saved'})
+        return jsonify({'status': 'error', 'reason': 'empty key'}), 400
+    # GET — return masked key
+    key = load_api_key()
+    masked = (key[:8] + '...' + key[-4:]) if len(key) > 12 else ('configured' if key else '')
+    return jsonify({'configured': bool(key), 'masked': masked})
+
+
 if __name__ == '__main__':
     print('=' * 50)
     print(' Smart Timetable Generator')
     print(' Open: http://localhost:5001')
     print('=' * 50)
     app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)
+

@@ -21,6 +21,8 @@ facial_recognition/data/
 
 # Timetable — cached results & test exports
 timetable_maker/last_result.json
+timetable_maker/wizard_state.json
+timetable_maker/ai_config.json
 timetable_maker/exports/
 timetable_maker/uploads/
 timetable_maker/test_output.*
@@ -33,3 +35,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Environment variables — NEVER commit real secrets
+.env

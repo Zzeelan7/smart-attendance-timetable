@@ -16,8 +16,8 @@
 <nav class="form-nav">
   <a href="/" class="back-btn">← Home</a>
   <div class="nav-title">
-    <span class="nav-sem-badge">SEM 4</span>
-    Generated Timetable — 4th Semester ECE
+    <span class="nav-sem-badge">Generated Timetable</span>
+    Timetable — ECE Department
   </div>
   <div class="export-actions">
     <a href="/export/excel" class="btn btn-export excel" download>⬇ Excel</a>
@@ -28,6 +28,23 @@
 <div class="result-wrap">
   <!-- Errors / Warnings -->
   <div id="result-errors" class="result-errors hidden"></div>
+
+  <!-- AI-Parsed Rules -->
+  <div id="ai-rules-wrap" style="display:none;margin-bottom:20px">
+    <details style="background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.18);border-radius:12px;padding:14px 18px">
+      <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);list-style:none;display:flex;align-items:center;gap:8px">
+        <span style="font-size:15px">🤖</span> AI-Interpreted Custom Constraints
+        <span id="ai-rules-count" style="margin-left:auto;font-size:11px;background:rgba(79,142,247,0.15);color:#4f8ef7;padding:2px 8px;border-radius:8px"></span>
+      </summary>
+      <div id="ai-rules-list" style="margin-top:12px;display:flex;flex-direction:column;gap:8px"></div>
+    </details>
+  </div>
+
+  <!-- Multi-sem selector (shown only when multiple semesters generated) -->
+  <div id="sem-selector" style="display:none;margin-bottom:16px">
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Viewing Semester:</div>
+    <div id="sem-btns" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+  </div>
 
   <!-- Legend -->
   <div class="legend" id="legend"></div>
@@ -98,8 +115,11 @@
 </div>
 
 <script>
-// ── Data injected from sessionStorage after generation ──────────
-const TT_DATA = JSON.parse(sessionStorage.getItem('tt_result') || '{}');
+// ── Data: prefer server-embedded JSON, fall back to sessionStorage ──
+const _serverData = {{ result_json|safe }};
+const TT_DATA = (Object.keys(_serverData).length > 0)
+  ? _serverData
+  : JSON.parse(sessionStorage.getItem('tt_result') || '{}');
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
 const PERIOD_LABELS = ['P1 9:00–10:00','P2 10:00–11:00','P3 11:15–12:15',
                        'P4 12:15–1:15','P5 2:00–3:00','P6 3:00–4:00',
@@ -181,26 +201,137 @@ function showTeacherTT(name) {
 
 // ── Init ──────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  if (!TT_DATA || !TT_DATA.grid_A) {
-    document.querySelector('.result-wrap').innerHTML =
-      '<div class="empty-teacher" style="padding:80px;text-align:center">No timetable data found. <a href="/semester/4" style="color:var(--accent)">Go back and generate one.</a></div>';
-    return;
+
+  // ── Show AI-parsed rules panel ────────────────────────────────
+  const parsedRules = TT_DATA.parsed_constraints || [];
+  if (parsedRules.length > 0) {
+    const ACTION_LABELS = {
+      block_teacher_day:    'Blocked teacher on a specific day',
+      block_teacher_period: 'Blocked teacher from a specific period (all days)',
+      only_available_days:  'Restricted teacher to specific days only',
+      max_classes_per_day:  'Set max teaching periods per day for teacher',
+      no_consecutive:       'Prevented back-to-back classes for teacher',
+      block_section_day:    'Blocked section/semester from a time slot',
+      unknown:              'Could not interpret — skipped',
+    };
+    const wrap = document.getElementById('ai-rules-wrap');
+    const list = document.getElementById('ai-rules-list');
+    const countEl = document.getElementById('ai-rules-count');
+    const applied = parsedRules.filter(r => r.action !== 'unknown').length;
+    countEl.textContent = `${applied}/${parsedRules.length} applied`;
+    wrap.style.display = 'block';
+
+    parsedRules.forEach(rule => {
+      const ok = rule.action !== 'unknown';
+      const label = ACTION_LABELS[rule.action] || rule.action;
+      const color = ok ? '#22c55e' : '#f87171';
+      const icon  = ok ? '✓' : '✗';
+      const detail = ok
+        ? Object.entries(rule)
+            .filter(([k]) => !['action','original','constraint_type'].includes(k))
+            .map(([k,v]) => `<b>${k}</b>: ${Array.isArray(v)?v.join(', '):v}`)
+            .join(' · ')
+        : (rule.reason || '');
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;gap:12px;align-items:flex-start;padding:10px 14px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)';
+      div.innerHTML = `
+        <span style="font-size:13px;font-weight:700;color:${color};flex-shrink:0">${icon}</span>
+        <div style="flex:1">
+          <div style="font-size:12px;color:#94a3b8;margin-bottom:2px">"${rule.original}"</div>
+          <div style="font-size:13px;font-weight:600;color:${ok?'#e2e8f0':'#64748b'}">${label}</div>
+          ${detail ? `<div style="font-size:11px;color:#64748b;margin-top:2px">${detail}</div>` : ''}
+        </div>`;
+      list.appendChild(div);
+    });
   }
 
+  const isMultiSem = TT_DATA.results && TT_DATA.semesters && TT_DATA.semesters.length > 0;
 
+  if (isMultiSem) {
+    // ── Multi-semester mode ──────────────────────────────────────
+    const ORD = ['','1st','2nd','3rd','4th','5th','6th','7th','8th'];
+    const sems = TT_DATA.semesters;
 
+    if (sems.length > 1) {
+      // Show semester selector bar
+      const selDiv = document.getElementById('sem-selector');
+      selDiv.style.display = 'block';
+      const btnsDiv = document.getElementById('sem-btns');
+      sems.forEach((s, i) => {
+        const btn = document.createElement('button');
+        btn.textContent = ORD[s] + ' Sem';
+        btn.style.cssText = 'padding:6px 16px;border-radius:20px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:#94a3b8;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s';
+        btn.onclick = () => {
+          btnsDiv.querySelectorAll('button').forEach(b => {
+            b.style.background='rgba(255,255,255,0.06)'; b.style.color='#94a3b8';
+            b.style.borderColor='rgba(255,255,255,0.12)';
+          });
+          btn.style.background='rgba(79,142,247,0.2)'; btn.style.color='#4f8ef7';
+          btn.style.borderColor='rgba(79,142,247,0.4)';
+          loadSemData(s);
+        };
+        btnsDiv.appendChild(btn);
+      });
+      btnsDiv.querySelectorAll('button')[0].click(); // auto-select first
+    } else {
+      loadSemData(sems[0]);
+    }
 
-  buildLegend(TT_DATA.colors || {});
-  buildTT(document.getElementById('tt-a'), TT_DATA.grid_A);
-  buildTT(document.getElementById('tt-b'), TT_DATA.grid_B);
+    function loadSemData(sem) {
+      const sd = TT_DATA.results[String(sem)];
+      if (!sd) return;
+      buildLegend({});
+      buildTT(document.getElementById('tt-a'), sd.grid_A || []);
+      buildTT(document.getElementById('tt-b'), sd.grid_B || []);
+      // Teacher dropdown
+      const sel = document.getElementById('teacher-select');
+      sel.innerHTML = '<option value="">— Select Teacher —</option>';
+      Object.keys(sd.teacher_schedules || {}).sort().forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name; opt.textContent = name;
+        sel.appendChild(opt);
+      });
+      sel._schedules = sd.teacher_schedules || {};
+      renderStudentList('student-list-a', 'res-count-a', sd.students_A || []);
+      renderStudentList('student-list-b', 'res-count-b', sd.students_B || []);
+    }
 
-  // Populate teacher select
-  const sel = document.getElementById('teacher-select');
-  Object.keys(TT_DATA.teacher_schedules || {}).sort().forEach(name => {
-    const opt = document.createElement('option');
-    opt.value = name; opt.textContent = name;
-    sel.appendChild(opt);
-  });
+    // Override showTeacherTT for multi-sem (uses sel._schedules)
+    window.showTeacherTT = function(name) {
+      const wrap = document.getElementById('teacher-tt-wrap');
+      const sel = document.getElementById('teacher-select');
+      const schedules = sel._schedules || {};
+      if (!name || !schedules[name]) {
+        wrap.innerHTML = '<div class="empty-teacher">Select a teacher to view their schedule</div>';
+        return;
+      }
+      const grid = schedules[name];
+      const table = document.createElement('table');
+      table.className = 'tt-table';
+      buildTT(table, grid);
+      wrap.innerHTML = `<h3 style="margin-bottom:12px;color:var(--text2)">📅 ${name}</h3>`;
+      wrap.appendChild(table);
+    };
+
+  } else if (TT_DATA.grid_A) {
+    // ── Legacy single-semester mode (old /semester/4 flow) ───────
+    buildLegend(TT_DATA.colors || {});
+    buildTT(document.getElementById('tt-a'), TT_DATA.grid_A);
+    buildTT(document.getElementById('tt-b'), TT_DATA.grid_B);
+    const sel = document.getElementById('teacher-select');
+    Object.keys(TT_DATA.teacher_schedules || {}).sort().forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      sel.appendChild(opt);
+    });
+    renderStudentList('student-list-a', 'res-count-a', TT_DATA.students_A || []);
+    renderStudentList('student-list-b', 'res-count-b', TT_DATA.students_B || []);
+
+  } else {
+    document.querySelector('.result-wrap').innerHTML =
+      '<div class="empty-teacher" style="padding:80px;text-align:center">No timetable data found. <a href="/" style="color:var(--accent)">Go back and generate one.</a></div>';
+    return;
+  }
 
   // ── Student lists ─────────────────────────────────────────────
   function renderStudentList(containerId, countId, students) {
