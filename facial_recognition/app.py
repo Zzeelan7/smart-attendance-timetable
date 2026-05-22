@@ -93,30 +93,25 @@ def camera_loop():
         with _frame_lock:
             _latest_raw_frame = frame.copy()
 
-        # Run recognition only if we have known faces (for performance)
-        if face_engine.total_encodings > 0:
-            annotated, results = face_engine.process_frame(frame)
+        # Always run face detection to show detection boxes, even without enrolled faces
+        annotated, results = face_engine.process_frame(frame)
 
-            # Log new detections (throttled – max 1 per second per person)
-            now = time.time()
-            for r in results:
-                rec_logger.log_event(
-                    r["name"], r["confidence"],
-                    r["is_known"], camera.source_name
-                )
-
-            with _frame_lock:
-                _latest_annotated_frame = annotated
-                _last_results = results
-        else:
-            # Just draw a "No known faces" overlay
-            overlay = frame.copy()
-            cv2.putText(overlay, "No enrolled faces – go to dashboard to enroll",
+        # Add enrollment prompt if no faces are enrolled
+        if face_engine.total_encodings == 0:
+            cv2.putText(annotated, "No enrolled faces – go to dashboard to enroll",
                         (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
                         (0, 200, 255), 2)
-            with _frame_lock:
-                _latest_annotated_frame = overlay
-                _last_results = []
+
+        # Log new detections (throttled – max 1 per second per person)
+        for r in results:
+            rec_logger.log_event(
+                r["name"], r["confidence"],
+                r["is_known"], camera.source_name
+            )
+
+        with _frame_lock:
+            _latest_annotated_frame = annotated
+            _last_results = results
 
         time.sleep(0.03)  # ~30 fps cap
 

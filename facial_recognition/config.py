@@ -20,10 +20,11 @@ except ImportError:
 # ─────────────────────────────────────────────
 
 # Camera source options:
-#   - 0, 1, 2 ...  → PC webcam index (0 = default webcam)
-#   - "http://192.168.x.x/stream" → ESP32-CAM MJPEG stream URL
+#   - 0, 1, 2 ...  → PC webcam index (0 = default webcam, local only)
+#   - "http://192.168.x.x/stream" → ESP32-CAM or camera server MJPEG stream URL
+#   - Default for Docker: connects to windows_camera_server via host.docker.internal
 
-_cam_src = os.environ.get("CAMERA_SOURCE", "0")
+_cam_src = os.environ.get("CAMERA_SOURCE", "http://host.docker.internal:8765/stream")
 CAMERA_SOURCE = int(_cam_src) if _cam_src.isdigit() else _cam_src
 
 FRAME_WIDTH  = 640

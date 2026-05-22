@@ -299,21 +299,34 @@ class FaceEngine:
         color      = (0, 220, 100) if is_known else (0, 80, 255)
         thickness  = 2
         corner_len = 20
-        pts = [(left, top), (right, top), (right, bottom), (left, bottom)]
-        for px, py in pts:
-            dx = 1 if px == left  else -1
-            dy = 1 if py == top   else -1
-            cv2.line(frame, (px, py), (px + dx*corner_len, py), color, thickness+1)
-            cv2.line(frame, (px, py), (px, py + dy*corner_len), color, thickness+1)
+        
+        # Draw corner lines (properly directed for each corner)
+        # Top-left corner
+        cv2.line(frame, (left, top), (left + corner_len, top), color, thickness+1)
+        cv2.line(frame, (left, top), (left, top + corner_len), color, thickness+1)
+        
+        # Top-right corner
+        cv2.line(frame, (right, top), (right - corner_len, top), color, thickness+1)
+        cv2.line(frame, (right, top), (right, top + corner_len), color, thickness+1)
+        
+        # Bottom-right corner
+        cv2.line(frame, (right, bottom), (right - corner_len, bottom), color, thickness+1)
+        cv2.line(frame, (right, bottom), (right, bottom - corner_len), color, thickness+1)
+        
+        # Bottom-left corner
+        cv2.line(frame, (left, bottom), (left + corner_len, bottom), color, thickness+1)
+        cv2.line(frame, (left, bottom), (left, bottom - corner_len), color, thickness+1)
 
+        # Draw label above the box (for better visibility)
         label = f"{name}  {confidence*100:.0f}%" if confidence else name
         (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+        label_y = max(top - 5, 20)  # Ensure label doesn't go off screen
         cv2.rectangle(frame,
-                      (left, bottom),
-                      (left + tw + 10, bottom + th + 12),
+                      (left, label_y - th - 5),
+                      (left + tw + 10, label_y + 5),
                       color, -1)
         cv2.putText(frame, label,
-                    (left + 5, bottom + th + 5),
+                    (left + 5, label_y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                     (255, 255, 255), 2)
 

@@ -1,4 +1,25 @@
 services:
+  camera_server:
+    image: python:3.11-slim
+    container_name: smart-camera-server
+    working_dir: /app
+    command: python windows_camera_server.py
+    volumes:
+      - ./windows_camera_server.py:/app/windows_camera_server.py:ro
+    ports:
+      - "8765:8765"
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - smart-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 8765), timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on: []
+
   facial_recognition:
     build:
       context: .
@@ -23,6 +44,9 @@ services:
     networks:
       - smart-network
     restart: unless-stopped
+    depends_on:
+      camera_server:
+        condition: service_healthy
 
   timetable_maker:
     build:
