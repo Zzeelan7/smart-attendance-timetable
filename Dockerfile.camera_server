@@ -1,0 +1,26 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies for OpenCV and headless operation
+RUN apt-get update && apt-get install -y \
+    libopenblas-dev \
+    liblapack-dev \
+    libgomp1 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libfreetype6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy and install Python dependencies
+RUN pip install --no-cache-dir opencv-python flask
+
+# Copy the camera server script
+COPY windows_camera_server.py .
+
+# Expose port 8765
+EXPOSE 8765
+
+# Run the camera server
+CMD ["python", "windows_camera_server.py"]
