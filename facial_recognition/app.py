@@ -130,16 +130,22 @@ def start_camera(source=None):
     stop_camera()
     time.sleep(0.3)
 
-    camera = get_camera(source)
-    if not camera.start():
-        logger.error(f"Failed to start camera: {camera.source_name}")
-        return False
+    try:
+        camera = get_camera(source)
+        if not camera.start():
+            logger.warning(f"Failed to start camera: {camera.source_name}")
+            logger.warning("Camera will be unavailable - use image upload for enrollment instead")
+            return False
 
-    _is_running = True
-    t = threading.Thread(target=camera_loop, daemon=True, name="CameraLoop")
-    t.start()
-    logger.info(f"Camera started: {camera.source_name}")
-    return True
+        _is_running = True
+        t = threading.Thread(target=camera_loop, daemon=True, name="CameraLoop")
+        t.start()
+        logger.info(f"Camera started: {camera.source_name}")
+        return True
+    except Exception as e:
+        logger.error(f"Exception starting camera: {e}")
+        logger.warning("Camera initialization failed - image enrollment will still work")
+        return False
 
 
 def stop_camera():
@@ -199,6 +205,7 @@ def video_feed():
 
 @app.route("/api/status")
 def api_status():
+    from recognition.face_engine import _FR_AVAILABLE
     cam_ok = camera is not None and camera.is_opened()
     with _frame_lock:
         results = _last_results.copy()
@@ -209,6 +216,8 @@ def api_status():
         "enrolled":       face_engine.total_encodings,
         "known_people":   face_engine.known_people,
         "is_running":     _is_running,
+        "face_recognition_available": _FR_AVAILABLE,
+        "enrollment_available": _FR_AVAILABLE,
         "current_faces":  results,
         "timestamp":      datetime.now().isoformat(),
     })
@@ -242,6 +251,11 @@ def api_log():
 @app.route("/api/enroll", methods=["POST"])
 def api_enroll():
     """Enroll from the current live camera frame."""
+    from recognition.face_engine import _FR_AVAILABLE
+    
+    if not _FR_AVAILABLE:
+        return jsonify({"success": False, "error": "face_recognition not available - use image enrollment"}), 503
+    
     data = request.get_json()
     name = (data or {}).get("name", "").strip()
     if not name:
@@ -251,18 +265,25 @@ def api_enroll():
         frame = _latest_raw_frame.copy() if _latest_raw_frame is not None else None
 
     if frame is None:
-        return jsonify({"success": False, "error": "No camera frame available"}), 503
+        return jsonify({"success": False, "error": "Camera not available - please enable your camera or use image enrollment"}), 503
 
     ok = face_engine.enroll_from_frame(name, frame)
     if ok:
+        logger.info(f"Successfully enrolled '{name}' from camera frame")
         return jsonify({"success": True, "message": f"'{name}' enrolled successfully",
                         "total_encodings": face_engine.total_encodings})
-    return jsonify({"success": False, "error": "No face detected in frame. Position your face clearly."}), 400
+    logger.warning(f"Enrollment failed for '{name}' - no face detected or error occurred")
+    return jsonify({"success": False, "error": "No face detected in frame. Position your face clearly in the camera."}), 400
 
 
 @app.route("/api/enroll_image", methods=["POST"])
 def api_enroll_image():
     """Enroll from an uploaded image file."""
+    from recognition.face_engine import _FR_AVAILABLE
+    
+    if not _FR_AVAILABLE:
+        return jsonify({"success": False, "error": "face_recognition not available - enrollment disabled"}), 503
+    
     name = request.form.get("name", "").strip()
     if not name:
         return jsonify({"success": False, "error": "Name is required"}), 400
@@ -270,17 +291,26 @@ def api_enroll_image():
         return jsonify({"success": False, "error": "No image file uploaded"}), 400
 
     file = request.files["image"]
+    if file.filename == "":
+        return jsonify({"success": False, "error": "No file selected"}), 400
+    
     person_dir = os.path.join(config.KNOWN_FACES_DIR, name)
     os.makedirs(person_dir, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     save_path = os.path.join(person_dir, f"{stamp}_{file.filename}")
-    file.save(save_path)
-
-    ok = face_engine.enroll_from_image(name, save_path)
-    if ok:
-        return jsonify({"success": True, "message": f"'{name}' enrolled from image",
-                        "total_encodings": face_engine.total_encodings})
-    return jsonify({"success": False, "error": "No face found in the uploaded image"}), 400
+    
+    try:
+        file.save(save_path)
+        ok = face_engine.enroll_from_image(name, save_path)
+        if ok:
+            logger.info(f"Successfully enrolled '{name}' from image")
+            return jsonify({"success": True, "message": f"'{name}' enrolled from image",
+                            "total_encodings": face_engine.total_encodings})
+        logger.warning(f"Enrollment failed for '{name}' - no face found in image")
+        return jsonify({"success": False, "error": "No face found in the uploaded image. Ensure the image has a clear, front-facing face."}), 400
+    except Exception as e:
+        logger.error(f"Error enrolling from image: {e}")
+        return jsonify({"success": False, "error": f"Enrollment error: {str(e)}"}), 500
 
 
 @app.route("/api/delete_person", methods=["POST"])

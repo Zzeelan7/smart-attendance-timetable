@@ -1,0 +1,40 @@
+# Use Python 3.11 slim image with build essentials
+FROM python:3.11-slim
+
+# Install system dependencies needed for dlib and face-recognition
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    libopenblas-dev \
+    liblapack-dev \
+    libgomp1 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app/facial_recognition
+
+# Copy requirements
+COPY facial_recognition/requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY facial_recognition/ .
+
+# Create directories for known faces and logs if they don't exist
+RUN mkdir -p known_faces logs
+
+# Expose Flask port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:5000/api/status')" || exit 1
+
+# Run the Flask app
+CMD ["python", "app.py"]

@@ -1,0 +1,101 @@
+name: Docker Build & Push
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: docker.io
+  # Update these with your Docker Hub username
+  FACIAL_IMAGE: smart-facial-recognition
+  TIMETABLE_IMAGE: smart-timetable-maker
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      # Build Facial Recognition Image
+      - name: Build and push Facial Recognition image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile.facial_recognition
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.FACIAL_IMAGE }}:latest
+            ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.FACIAL_IMAGE }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.FACIAL_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.FACIAL_IMAGE }}:buildcache,mode=max
+      
+      # Build Timetable Maker Image
+      - name: Build and push Timetable Maker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile.timetable_maker
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.TIMETABLE_IMAGE }}:latest
+            ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.TIMETABLE_IMAGE }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.TIMETABLE_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.TIMETABLE_IMAGE }}:buildcache,mode=max
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    services:
+      facial_recognition:
+        image: ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/smart-facial-recognition:${{ github.sha }}
+        options: >-
+          --health-cmd="curl -f http://localhost:5000/api/status || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 5000:5000
+      
+      timetable_maker:
+        image: ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/smart-timetable-maker:${{ github.sha }}
+        options: >-
+          --health-cmd="curl -f http://localhost:5001/ || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 5001:5001
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Wait for services
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:5000/api/status; do sleep 2; done'
+          timeout 60 bash -c 'until curl -f http://localhost:5001/; do sleep 2; done'
+      
+      - name: Test Facial Recognition API
+        run: |
+          curl -s http://localhost:5000/api/status | jq '.'
+      
+      - name: Test Timetable Maker API
+        run: |
+          curl -s http://localhost:5001/ | grep -q "Smart Timetable" && echo "✓ Timetable maker is up"

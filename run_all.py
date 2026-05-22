@@ -23,6 +23,10 @@ def start_facial_recognition():
     os.chdir(fr_dir)
     try:
         import app as fr_app
+        # __main__ block is skipped on import, so start camera explicitly
+        ok = fr_app.start_camera()
+        if not ok:
+            print('[Facial Recognition] WARNING: Camera failed to start – configure via dashboard.')
         fr_app.app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
     except Exception as e:
         print(f'[Facial Recognition] Failed to start: {e}')

@@ -2,10 +2,12 @@
 recognition/face_engine.py
 Core facial recognition engine.
 
-Uses:
-  - face_recognition (dlib) for encoding and comparison
-  - OpenCV for drawing overlays
-  - pickle for fast encoding persistence
+Primary backend  : face_recognition (dlib) — high accuracy
+Fallback backend : OpenCV Haar Cascade  — works without dlib/Python 3.13
+
+The app starts and the camera shows ONLINE regardless of which backend
+is available.  If face_recognition is missing, detection still works
+(bounding boxes drawn) but identity matching returns "Unknown".
 """
 
 import os
@@ -14,7 +16,6 @@ import cv2
 import pickle
 import logging
 import numpy as np
-import face_recognition
 from datetime import datetime
 from pathlib import Path
 
@@ -22,21 +23,40 @@ import config
 
 logger = logging.getLogger(__name__)
 
+# ── Try importing the dlib-based backend ────────────────────────────────────
+try:
+    import face_recognition as _fr
+    _FR_AVAILABLE = True
+    logger.info("face_recognition backend loaded (dlib).")
+except ImportError:
+    _fr = None
+    _FR_AVAILABLE = False
+    logger.warning(
+        "face_recognition / dlib not installed — falling back to OpenCV Haar Cascade.\n"
+        "  Recognition will detect faces but cannot identify individuals.\n"
+        "  To enable full recognition install dlib:\n"
+        "    pip install face-recognition"
+    )
+
+# ── OpenCV Haar Cascade (always available) ───────────────────────────────────
+_CASCADE_PATH = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+_haar = cv2.CascadeClassifier(_CASCADE_PATH)
+
 
 class FaceEngine:
     """
     Manages:
       - Loading / saving known face encodings
       - Detecting faces in a frame
-      - Recognising detected faces
+      - Recognising detected faces (dlib backend only)
       - Drawing annotated overlays on frames
       - Enrolling new faces from images or live capture
     """
 
     def __init__(self):
-        self.known_names:     list[str]             = []
-        self.known_encodings: list[np.ndarray]      = []
-        self._lock = threading.Lock()   # Serialise all face_recognition calls
+        self.known_names:     list[str]        = []
+        self.known_encodings: list[np.ndarray] = []
+        self._lock = threading.Lock()
         self._ensure_dirs()
         self.load_encodings()
 
@@ -51,6 +71,8 @@ class FaceEngine:
 
     def load_encodings(self) -> int:
         """Load encodings from the pickle cache. Returns count loaded."""
+        if not _FR_AVAILABLE:
+            return 0
         if not os.path.exists(config.ENCODINGS_FILE):
             logger.info("No encodings file found — starting fresh.")
             return 0
@@ -67,6 +89,8 @@ class FaceEngine:
 
     def save_encodings(self):
         """Persist encodings to disk."""
+        if not _FR_AVAILABLE:
+            return
         with open(config.ENCODINGS_FILE, "wb") as f:
             pickle.dump({
                 "names":     self.known_names,
@@ -79,21 +103,19 @@ class FaceEngine:
     def enroll_from_image(self, name: str, image_path: str) -> bool:
         """
         Enroll a person from an image file.
-        The image should contain exactly one face.
-
-        Returns True if enrollment succeeded.
+        Requires face_recognition backend.
         """
-        img = face_recognition.load_image_file(image_path)
+        if not _FR_AVAILABLE:
+            logger.warning("Enrollment unavailable — face_recognition not installed.")
+            return False
+        img = _fr.load_image_file(image_path)
         with self._lock:
-            encodings = face_recognition.face_encodings(
-                img, num_jitters=1, model="large"
-            )
+            encodings = _fr.face_encodings(img, num_jitters=1, model="large")
         if not encodings:
             logger.warning(f"No face found in {image_path}")
             return False
         if len(encodings) > 1:
             logger.warning(f"Multiple faces in {image_path} — using the first")
-
         self.known_names.append(name)
         self.known_encodings.append(encodings[0])
         self.save_encodings()
@@ -103,26 +125,28 @@ class FaceEngine:
     def enroll_from_frame(self, name: str, frame: np.ndarray) -> bool:
         """
         Enroll a person from a live camera frame (BGR).
-        Returns True if a face was found and enrolled.
+        Requires face_recognition backend.
         """
+        if not _FR_AVAILABLE:
+            logger.warning("Enrollment unavailable — face_recognition not installed.")
+            return False
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         with self._lock:
-            locations = face_recognition.face_locations(
-                rgb, number_of_times_to_upsample=config.UPSAMPLE_TIMES,
-                model=config.DETECTION_MODEL
+            locations = _fr.face_locations(
+                rgb,
+                number_of_times_to_upsample=config.UPSAMPLE_TIMES,
+                model=config.DETECTION_MODEL,
             )
-            encodings = face_recognition.face_encodings(rgb, locations, num_jitters=1)
-
+            encodings = _fr.face_encodings(rgb, locations, num_jitters=1)
         if not encodings:
             logger.warning("No face detected in frame for enrollment")
             return False
 
-        # Pick the largest face (closest to camera)
-        enc = encodings[0] if len(encodings) == 1 else self._largest_face_encoding(encodings, locations)
+        enc = encodings[0] if len(encodings) == 1 \
+              else self._largest_face_encoding(encodings, locations)
         self.known_names.append(name)
         self.known_encodings.append(enc)
 
-        # Also save the face image to known_faces/
         person_dir = os.path.join(config.KNOWN_FACES_DIR, name)
         os.makedirs(person_dir, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -136,11 +160,10 @@ class FaceEngine:
         return True
 
     def rebuild_from_known_faces_dir(self) -> int:
-        """
-        Scan the known_faces/ directory and re-encode all images.
-        Useful after manually adding photos.
-        Returns number of encodings built.
-        """
+        """Scan known_faces/ and re-encode all images. Returns count built."""
+        if not _FR_AVAILABLE:
+            logger.warning("Rebuild unavailable — face_recognition not installed.")
+            return 0
         self.known_names.clear()
         self.known_encodings.clear()
 
@@ -153,8 +176,8 @@ class FaceEngine:
                 if img_file.suffix.lower() not in {".jpg", ".jpeg", ".png"}:
                     continue
                 try:
-                    img = face_recognition.load_image_file(str(img_file))
-                    encs = face_recognition.face_encodings(img)
+                    img  = _fr.load_image_file(str(img_file))
+                    encs = _fr.face_encodings(img)
                     if encs:
                         self.known_names.append(name)
                         self.known_encodings.append(encs[0])
@@ -169,14 +192,12 @@ class FaceEngine:
     def delete_person(self, name: str) -> bool:
         """Remove all encodings and images for a given person."""
         import shutil
-        # Remove from memory
         indices = [i for i, n in enumerate(self.known_names) if n == name]
         for i in reversed(indices):
             self.known_names.pop(i)
             self.known_encodings.pop(i)
-        self.save_encodings()
-
-        # Remove image folder
+        if _FR_AVAILABLE:
+            self.save_encodings()
         person_dir = os.path.join(config.KNOWN_FACES_DIR, name)
         if os.path.isdir(person_dir):
             shutil.rmtree(person_dir)
@@ -190,29 +211,31 @@ class FaceEngine:
         Detect and recognise all faces in a BGR frame.
 
         Returns:
-            annotated_frame: BGR frame with boxes and labels drawn
-            results: list of dicts [{name, confidence, location, is_known}]
+            annotated_frame : BGR frame with boxes and labels drawn
+            results         : list of dicts [{name, confidence, location, is_known}]
         """
-        # Downsample for faster detection
-        small = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
-        rgb_small = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
+        if _FR_AVAILABLE:
+            return self._process_frame_dlib(frame)
+        return self._process_frame_opencv(frame)
 
+    # ── dlib / face_recognition path ──────────────────────────────────────
+
+    def _process_frame_dlib(self, frame: np.ndarray):
+        small      = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
+        rgb_small  = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
         with self._lock:
-            locations = face_recognition.face_locations(
+            locations = _fr.face_locations(
                 rgb_small,
                 number_of_times_to_upsample=config.UPSAMPLE_TIMES,
                 model=config.DETECTION_MODEL,
             )
-            encodings = face_recognition.face_encodings(rgb_small, locations)
+            encodings = _fr.face_encodings(rgb_small, locations)
 
-        results = []
+        results  = []
         annotated = frame.copy()
-
         for (top, right, bottom, left), enc in zip(locations, encodings):
-            # Scale back to original frame size
             top    *= 2; right  *= 2
             bottom *= 2; left   *= 2
-
             name, confidence, is_known = self._identify(enc)
             results.append({
                 "name":       name,
@@ -220,27 +243,51 @@ class FaceEngine:
                 "location":   (top, right, bottom, left),
                 "is_known":   is_known,
             })
-
             self._draw_face_box(annotated, top, right, bottom, left,
                                 name, confidence, is_known)
-
         return annotated, results
 
+    # ── OpenCV Haar Cascade fallback path ─────────────────────────────────
+
+    def _process_frame_opencv(self, frame: np.ndarray):
+        gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        small = cv2.resize(gray, (0, 0), fx=0.5, fy=0.5)
+        faces = _haar.detectMultiScale(
+            small, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30)
+        )
+        results  = []
+        annotated = frame.copy()
+
+        for (x, y, w, h) in faces:
+            # Scale back to full resolution
+            x, y, w, h = x*2, y*2, w*2, h*2
+            top, right, bottom, left = y, x+w, y+h, x
+            results.append({
+                "name":       "Unknown",
+                "confidence": 0.0,
+                "location":   (top, right, bottom, left),
+                "is_known":   False,
+            })
+            # Draw corner-accent box
+            self._draw_face_box(annotated, top, right, bottom, left,
+                                "Unknown (install dlib)", 0.0, False)
+
+        # Watermark so the user knows recognition is limited
+        if faces is not None and len(faces) > 0:
+            cv2.putText(annotated, "Recognition limited — dlib not installed",
+                        (10, annotated.shape[0] - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+        return annotated, results
+
+    # ── Identification helper (dlib only) ─────────────────────────────────
+
     def _identify(self, encoding: np.ndarray) -> tuple[str, float, bool]:
-        """
-        Match an encoding against known faces.
-        Returns: (name, confidence_0_to_1, is_known)
-        """
         if not self.known_encodings:
             return "Unknown", 0.0, False
-
-        distances = face_recognition.face_distance(self.known_encodings, encoding)
+        distances = _fr.face_distance(self.known_encodings, encoding)
         best_idx  = int(np.argmin(distances))
         best_dist = float(distances[best_idx])
-
-        # Convert distance to a 0-1 confidence (distance=0 → 1.0, distance≥1 → 0.0)
         confidence = max(0.0, 1.0 - best_dist)
-
         if best_dist <= config.RECOGNITION_THRESHOLD:
             return self.known_names[best_idx], confidence, True
         return "Unknown", confidence, False
@@ -249,34 +296,29 @@ class FaceEngine:
 
     def _draw_face_box(self, frame, top, right, bottom, left,
                        name, confidence, is_known):
-        """Draw a styled bounding box and label on the frame."""
-        color = (0, 220, 100) if is_known else (0, 80, 255)   # green / red
-        thickness = 2
-
-        # Rounded-corner box (4 corner accents)
+        color      = (0, 220, 100) if is_known else (0, 80, 255)
+        thickness  = 2
         corner_len = 20
         pts = [(left, top), (right, top), (right, bottom), (left, bottom)]
         for px, py in pts:
             dx = 1 if px == left  else -1
             dy = 1 if py == top   else -1
-            cv2.line(frame, (px, py), (px + dx * corner_len, py), color, thickness + 1)
-            cv2.line(frame, (px, py), (px, py + dy * corner_len), color, thickness + 1)
+            cv2.line(frame, (px, py), (px + dx*corner_len, py), color, thickness+1)
+            cv2.line(frame, (px, py), (px, py + dy*corner_len), color, thickness+1)
 
-        # Label background
-        label = f"{name}  {confidence*100:.0f}%"
-        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+        label = f"{name}  {confidence*100:.0f}%" if confidence else name
+        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
         cv2.rectangle(frame,
                       (left, bottom),
                       (left + tw + 10, bottom + th + 12),
                       color, -1)
         cv2.putText(frame, label,
                     (left + 5, bottom + th + 5),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                     (255, 255, 255), 2)
 
     @staticmethod
     def _largest_face_encoding(encodings, locations):
-        """Return the encoding for the largest detected face."""
         sizes = [(b - t) * (r - l) for (t, r, b, l) in locations]
         return encodings[int(np.argmax(sizes))]
 
@@ -284,9 +326,12 @@ class FaceEngine:
 
     @property
     def known_people(self) -> list[str]:
-        """Deduplicated list of enrolled person names."""
         return sorted(set(self.known_names))
 
     @property
     def total_encodings(self) -> int:
         return len(self.known_encodings)
+
+    @property
+    def backend(self) -> str:
+        return "face_recognition (dlib)" if _FR_AVAILABLE else "OpenCV Haar Cascade"

@@ -24,14 +24,17 @@ function stopEnrollPreview() {
   }
 }
 
-document.querySelectorAll('.nav-item').forEach(item => {
+document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
   item.addEventListener('click', e => {
     e.preventDefault();
     const tab = item.dataset.tab;
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    if (!tab) return;
+    const tabPanel = document.getElementById('tab-' + tab);
+    if (!tabPanel) return;
+    document.querySelectorAll('.nav-item[data-tab]').forEach(n => n.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     item.classList.add('active');
-    document.getElementById('tab-' + tab).classList.add('active');
+    tabPanel.classList.add('active');
     if (tab === 'enroll')   startEnrollPreview();
     else                    stopEnrollPreview();
     if (tab === 'people')   loadPeople();
@@ -125,6 +128,22 @@ async function enrollFromCamera() {
   const btn  = document.getElementById('btn-enroll-live');
   if (!name) { showMsg(msg, 'error', '⚠ Please enter a name.'); return; }
 
+  // Check system status first
+  try {
+    const statusResp = await fetch('/api/status');
+    const status = await statusResp.json();
+    if (!status.face_recognition_available) {
+      showMsg(msg, 'error', '✗ face_recognition not available - use image enrollment instead');
+      showToast('Try uploading an image instead', 'info');
+      return;
+    }
+    if (!status.camera_ok) {
+      showMsg(msg, 'error', '✗ Camera not connected - enable your camera or use image enrollment');
+      showToast('Camera not available - use image upload', 'info');
+      return;
+    }
+  } catch {}
+
   btn.disabled = true;
   btn.textContent = 'Capturing…';
   try {
@@ -138,11 +157,15 @@ async function enrollFromCamera() {
       showMsg(msg, 'success', `✓ ${d.message}`);
       showToast(`✓ ${name} enrolled!`, 'success');
       document.getElementById('enroll-name-live').value = '';
+      loadPeople();
     } else {
-      showMsg(msg, 'error', `✗ ${d.error}`);
+      showMsg(msg, 'error', `✗ ${d.error || 'Enrollment failed'}`);
+      if (d.error && d.error.includes('Camera')) {
+        showToast('💡 Try the image upload method instead', 'info');
+      }
     }
   } catch (e) {
-    showMsg(msg, 'error', '✗ Network error');
+    showMsg(msg, 'error', '✗ Network error - check camera and try again');
   }
   btn.disabled = false;
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M12 5v14M5 12l7-7 7 7"/></svg> Capture & Enroll`;
@@ -169,6 +192,16 @@ async function enrollFromImage() {
   if (!name) { showMsg(msg, 'error', '⚠ Please enter a name.'); return; }
   if (!file) { showMsg(msg, 'error', '⚠ Please select an image.'); return; }
 
+  // Check face_recognition availability
+  try {
+    const statusResp = await fetch('/api/status');
+    const status = await statusResp.json();
+    if (!status.face_recognition_available) {
+      showMsg(msg, 'error', '✗ Enrollment system not available (face_recognition not installed)');
+      return;
+    }
+  } catch {}
+
   btn.disabled = true;
   btn.textContent = 'Enrolling…';
   const form = new FormData();
@@ -183,11 +216,12 @@ async function enrollFromImage() {
       document.getElementById('enroll-name-img').value = '';
       document.getElementById('img-upload').value = '';
       document.getElementById('img-preview').classList.add('hidden');
+      loadPeople();  // Refresh people list
     } else {
-      showMsg(msg, 'error', `✗ ${d.error}`);
+      showMsg(msg, 'error', `✗ ${d.error || 'Enrollment failed'}`);
     }
-  } catch {
-    showMsg(msg, 'error', '✗ Network error');
+  } catch (e) {
+    showMsg(msg, 'error', '✗ Network or processing error');
   }
   btn.disabled = false;
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M12 5v14M5 12l7-7 7 7"/></svg> Enroll from Image`;

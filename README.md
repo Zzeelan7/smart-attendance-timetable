@@ -22,13 +22,51 @@ A mini-project combining **AI-based Facial Recognition Attendance** and a **Smar
 
 ---
 
-## 🚀 Running Locally
+## 🚀 Running the System
 
-### Prerequisites
+### Option 1: Docker (Recommended) ⭐
+
+Docker eliminates all dependency issues! Builds will work on any system.
+
+#### Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop)
+
+#### Quick Start
+```bash
+# Build and start all services
+docker-compose build
+docker-compose up -d
+
+# Access services
+# Facial Recognition: http://localhost:5000
+# Timetable Maker:    http://localhost:5001
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+**Windows Users:** Use the provided PowerShell scripts
+```powershell
+.\build.ps1      # Build images
+.\run.ps1        # Manage services
+```
+
+📖 See [QUICKSTART.md](QUICKSTART.md) for detailed Docker instructions.
+
+---
+
+### Option 2: Local Installation
+
+#### Prerequisites
 - Python 3.9+
 - pip
+- CMake (required for dlib)
+- Visual Studio Build Tools (Windows) or build-essential (Linux)
 
-### Facial Recognition
+#### Facial Recognition
 ```bash
 cd facial_recognition
 pip install -r requirements.txt
@@ -36,9 +74,9 @@ python app.py
 # Open http://localhost:5000
 ```
 
-> ⚠️ Requires a webcam and `dlib` with CMake installed. See [dlib install guide](http://dlib.net/).
+> ⚠️ Requires webcam and `dlib` compilation. This often fails on Windows without proper build tools. Use Docker instead!
 
-### Timetable Generator
+#### Timetable Generator
 ```bash
 cd timetable_maker
 pip install -r requirements.txt

@@ -4,6 +4,7 @@ Handles local webcam capture using OpenCV.
 Works with any USB/built-in webcam on Windows, Linux, or Mac.
 """
 
+import sys
 import cv2
 import logging
 import numpy as np
@@ -34,11 +35,37 @@ class PCCamera(BaseCamera):
     # ─── BaseCamera interface ─────────────────────────────────────────────
 
     def start(self) -> bool:
+        is_windows = sys.platform.startswith("win")
         logger.info(f"Opening PC camera (device index: {self._index})")
-        self._cap = cv2.VideoCapture(self._index)
 
-        if not self._cap.isOpened():
-            logger.error(f"Failed to open camera device {self._index}")
+        # On Windows, DirectShow (CAP_DSHOW) is more reliable than the
+        # default MSMF backend — try it first, then fall back to default.
+        backends = [(cv2.CAP_DSHOW, "DirectShow"), (None, "default")] if is_windows \
+                   else [(None, "default")]
+
+        for backend, name in backends:
+            try:
+                cap = cv2.VideoCapture(self._index, backend) if backend is not None \
+                      else cv2.VideoCapture(self._index)
+
+                if cap.isOpened():
+                    # Verify we can actually read a frame
+                    ok, _ = cap.read()
+                    if ok:
+                        self._cap = cap
+                        logger.info(f"Camera opened with {name} backend")
+                        break
+                    else:
+                        logger.warning(f"Camera opened but first read failed ({name} backend)")
+                        cap.release()
+                else:
+                    cap.release()
+                    logger.warning(f"Camera device {self._index} not opened with {name} backend")
+            except Exception as e:
+                logger.warning(f"Backend '{name}' raised: {e}")
+
+        if self._cap is None or not self._cap.isOpened():
+            logger.error(f"Failed to open camera device {self._index} on any backend")
             return False
 
         # Set preferred resolution
@@ -50,7 +77,7 @@ class PCCamera(BaseCamera):
 
         actual_w = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         actual_h = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        logger.info(f"PC camera opened: {actual_w}x{actual_h}")
+        logger.info(f"PC camera ready: {actual_w}x{actual_h}")
         return True
 
     def read_frame(self) -> tuple[bool, np.ndarray]:

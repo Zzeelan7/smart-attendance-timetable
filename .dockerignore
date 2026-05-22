@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+dist
+build
+.venv
+venv
+env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (if applicable)
+node_modules
+npm-debug.log
+
+# Build artifacts
+*.o
+*.so
+*.dll
+CMakeCache.txt
+CMakeFiles/
+
+# Test/Temp files
+.pytest_cache
+.coverage
+.env.local

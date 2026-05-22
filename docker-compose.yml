@@ -1,0 +1,51 @@
+services:
+  facial_recognition:
+    build:
+      context: .
+      dockerfile: Dockerfile.facial_recognition
+    container_name: smart-facial-recognition
+    ports:
+      - "${FACIAL_PORT:-5000}:5000"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - FLASK_DEBUG=${FLASK_DEBUG:-True}
+      - PYTHONUNBUFFERED=1
+      - CAMERA_SOURCE=${CAMERA_SOURCE:-http://host.docker.internal:8765/stream}
+      - ESP32_CAM_IP=${ESP32_CAM_IP:-192.168.1.100}
+      - FACIAL_SECRET_KEY=${FACIAL_SECRET_KEY:-change-me}
+    env_file:
+      - .env
+    volumes:
+      - ./facial_recognition/known_faces:/app/facial_recognition/known_faces
+      - ./facial_recognition/data:/app/facial_recognition/data
+      - ./facial_recognition/static:/app/facial_recognition/static
+    networks:
+      - smart-network
+    restart: unless-stopped
+
+  timetable_maker:
+    build:
+      context: .
+      dockerfile: Dockerfile.timetable_maker
+    container_name: smart-timetable-maker
+    ports:
+      - "${TIMETABLE_PORT:-5001}:5001"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - FLASK_DEBUG=${FLASK_DEBUG:-True}
+      - PYTHONUNBUFFERED=1
+      - TIMETABLE_SECRET_KEY=${TIMETABLE_SECRET_KEY:-change-me}
+    env_file:
+      - .env
+    volumes:
+      - ./timetable_maker/output:/app/timetable_maker/output
+      - ./timetable_maker/static:/app/timetable_maker/static
+    networks:
+      - smart-network
+    restart: unless-stopped
+
+networks:
+  smart-network:
+    driver: bridge
